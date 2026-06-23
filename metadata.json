@@ -1,0 +1,6 @@
+{
+  "name": "Jalaram Academy",
+  "description": "Enterprise ERP v350 for student portal, faculty dashboards, examinations, course libraries, registration management, and integrated classroom systems.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

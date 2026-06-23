@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Graduation Mortarboard Cap Graphic (Aesthetic Centerpiece) -->
+    <!-- Cap Diamond -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M54,26 L22,44 L54,62 L86,44 Z" />
+
+    <!-- Cap Hood Base -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,51.5 L34,66 C34,74 44,78 54,78 C64,78 74,74 74,66 L74,51.5 C68,54.5 61,56 54,56 C47,56 40,54.5 34,51.5 Z" />
+
+    <!-- Cap Pendant Tassel -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M78,44.5 L78,65 L82,65 L82,44.5 Z" />
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M76,65 L84,65 L84,72 L76,72 Z" />
+
+    <!-- Solid Base Ground lines representing steps or books -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,82 L68,82 L68,85 L40,85 Z" />
+</vector>
