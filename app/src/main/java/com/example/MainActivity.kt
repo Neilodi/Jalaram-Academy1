@@ -2,7 +2,7 @@ package com.example
 
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -18,7 +18,7 @@ import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.isAppInDarkMode
 import com.example.viewmodel.ErpViewModel
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     private val viewModel: ErpViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -727,8 +727,19 @@ fun LiveClassScreen(viewModel: ErpViewModel) {
 
                                 Button(
                                     onClick = {
-                                        viewModel.joinLiveClass(liveSession)
-                                        Toast.makeText(context, "Connecting to live classroom...", Toast.LENGTH_SHORT).show()
+                                        if (currentUser?.role == "Student") {
+                                            val studentSubjects = currentUser?.subjects?.split(",")?.map { it.trim() } ?: emptyList()
+                                            val studentBatch = currentUser?.batch ?: ""
+                                            if (liveSession.subject in studentSubjects || liveSession.batch == studentBatch) {
+                                                viewModel.joinLiveClass(liveSession)
+                                                Toast.makeText(context, "Connecting to live classroom...", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                Toast.makeText(context, "Access Denied: Subject or Batch does not match your enrollment", Toast.LENGTH_LONG).show()
+                                            }
+                                        } else {
+                                            viewModel.joinLiveClass(liveSession)
+                                            Toast.makeText(context, "Connecting to live classroom...", Toast.LENGTH_SHORT).show()
+                                        }
                                     },
                                     colors = ButtonDefaults.buttonColors(containerColor = JalaramPrimary),
                                     shape = RoundedCornerShape(8.dp),

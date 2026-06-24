@@ -59,6 +59,29 @@ class DatabaseRepository(private val db: AppDatabase) {
 
     suspend fun insertChatMessage(message: ChatMessage) = db.chatDao().insertMessage(message)
 
+    // Pro Exam System Methods
+    suspend fun getAllPublishedExams(): List<ProExam> = db.proExamDao().getAllPublishedExams()
+    suspend fun getProExamById(examId: String): ProExam? = db.proExamDao().getExamById(examId)
+    suspend fun insertProExam(exam: ProExam) = db.proExamDao().insertExam(exam)
+    suspend fun getQuestionsForExam(examId: String) = db.proExamDao().getQuestionsForExam(examId)
+    suspend fun insertProQuestion(question: ProQuestion) = db.proExamDao().insertQuestion(question)
+    suspend fun getOptionsForQuestion(questionId: String) = db.proExamDao().getOptionsForQuestion(questionId)
+    suspend fun insertProOption(option: ProQuestionOption) = db.proExamDao().insertOption(option)
+    suspend fun insertProAttempt(attempt: ProExamAttempt) = db.proExamDao().insertAttempt(attempt)
+    suspend fun updateProAttempt(attempt: ProExamAttempt) = db.proExamDao().updateAttempt(attempt)
+    suspend fun getProAttempt(userId: String, examId: String) = db.proExamDao().getAttempt(userId, examId)
+    suspend fun saveProAnswer(answer: ProAttemptAnswer) = db.proExamDao().saveAnswer(answer)
+    suspend fun getAnswersForAttempt(attemptId: String) = db.proExamDao().getAnswersForAttempt(attemptId)
+
+    // Draft Management
+    suspend fun getAllDrafts(): List<ProExamDraft> = db.proExamDao().getAllDrafts()
+    suspend fun insertDraft(draft: ProExamDraft) = db.proExamDao().insertDraft(draft)
+    suspend fun deleteDraft(draftId: String) = db.proExamDao().deleteDraft(draftId)
+    suspend fun getDraftQuestions(draftId: String) = db.proExamDao().getDraftQuestions(draftId)
+    suspend fun insertDraftQuestion(question: ProQuestionDraft) = db.proExamDao().insertDraftQuestion(question)
+    suspend fun getDraftOptions(questionId: String) = db.proExamDao().getDraftOptions(questionId)
+    suspend fun insertDraftOption(option: ProQuestionOptionDraft) = db.proExamDao().insertDraftOption(option)
+
     suspend fun clearAllChatMessages() = db.chatDao().clearAllMessages()
 
     val allSchedulesFlow: Flow<List<ExamSchedule>> = db.examScheduleDao().getAllSchedulesFlow()
@@ -442,5 +465,36 @@ class DatabaseRepository(private val db: AppDatabase) {
                 description = "Handwritten revision notes summarizing differences between animal and plant cells, plastid functions, and ribosomes."
             )
         )
+
+        // Seed Pro Exams
+        val physicsExam = ProExam(
+            examId = "PRO-EXM-001",
+            title = "Physics Mid-Term Assessment",
+            description = "Covers Mechanics and Thermodynamics",
+            subject = "Physics",
+            assignedBatches = "Grade 10-A, JEE Mains",
+            startTimestamp = System.currentTimeMillis() - 3600000, // Started 1 hour ago
+            endTimestamp = System.currentTimeMillis() + 3600000 * 5, // Ends in 5 hours
+            durationMinutes = 60,
+            totalMarks = 50,
+            negativeMarking = 0.25f,
+            isStrictMode = true,
+            maxLeavesAllowed = 3
+        )
+        db.proExamDao().insertExam(physicsExam)
+
+        val q1 = ProQuestion("Q-101", physicsExam.examId, "What is the SI unit of power?")
+        db.proExamDao().insertQuestion(q1)
+        db.proExamDao().insertOption(ProQuestionOption("O-101", q1.questionId, "Watt", true))
+        db.proExamDao().insertOption(ProQuestionOption("O-102", q1.questionId, "Joule", false))
+        db.proExamDao().insertOption(ProQuestionOption("O-103", q1.questionId, "Newton", false))
+        db.proExamDao().insertOption(ProQuestionOption("O-104", q1.questionId, "Ampere", false))
+
+        val q2 = ProQuestion("Q-102", physicsExam.examId, "Which law explains the phenomenon of inertia?")
+        db.proExamDao().insertQuestion(q2)
+        db.proExamDao().insertOption(ProQuestionOption("O-201", q2.questionId, "Newton's First Law", true))
+        db.proExamDao().insertOption(ProQuestionOption("O-202", q2.questionId, "Newton's Second Law", false))
+        db.proExamDao().insertOption(ProQuestionOption("O-203", q2.questionId, "Newton's Third Law", false))
+        db.proExamDao().insertOption(ProQuestionOption("O-204", q2.questionId, "Pascal's Law", false))
     }
 }

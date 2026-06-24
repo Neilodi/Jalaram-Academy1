@@ -1,6 +1,9 @@
 package com.example.ui.screens
 
 import android.widget.Toast
+import androidx.fragment.app.FragmentActivity
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -282,6 +285,44 @@ fun LoginScreen(
                                             userId = userIdInput,
                                             role = selectedRole,
                                             pin = pinInput,
+                                            onBiometricRequested = { user ->
+                                                val activity = context as? FragmentActivity
+                                                if (activity != null) {
+                                                    val executor = ContextCompat.getMainExecutor(activity)
+                                                    val biometricPrompt = BiometricPrompt(activity, executor,
+                                                        object : BiometricPrompt.AuthenticationCallback() {
+                                                            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                                                                super.onAuthenticationError(errorCode, errString)
+                                                                // Fall back to OTP
+                                                                viewModel.proceedToOtp { otp ->
+                                                                    Toast.makeText(context, "[SIMULATION MODE]\nSecurity OTP Sent to ALL registered devices! Verification Code: $otp", Toast.LENGTH_LONG).show()
+                                                                }
+                                                            }
+
+                                                            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                                                                super.onAuthenticationSucceeded(result)
+                                                                viewModel.completeLoginWithoutOtp()
+                                                            }
+
+                                                            override fun onAuthenticationFailed() {
+                                                                super.onAuthenticationFailed()
+                                                                Toast.makeText(context, "Biometric Authentication failed", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        })
+
+                                                    val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                                                        .setTitle("Biometric Verification")
+                                                        .setSubtitle("Confirm your identity to securely log in")
+                                                        .setNegativeButtonText("Use OTP Instead")
+                                                        .build()
+
+                                                    biometricPrompt.authenticate(promptInfo)
+                                                } else {
+                                                    viewModel.proceedToOtp { otp ->
+                                                        Toast.makeText(context, "[SIMULATION MODE]\nSecurity OTP Sent to ALL registered devices! Verification Code: $otp", Toast.LENGTH_LONG).show()
+                                                    }
+                                                }
+                                            },
                                             onOtpRequested = { otp ->
                                                 Toast.makeText(
                                                     context,
@@ -376,7 +417,7 @@ fun LoginScreen(
                                 )
 
                                 Text(
-                                    text = "Check your device for the 4-digit code. In simulation, enter generated code or backdoor code 1234.",
+                                    text = "Check your device for the 4-digit code. In simulation, check the toast message for the code.",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = JalaramTextSub,
                                         lineHeight = 16.sp

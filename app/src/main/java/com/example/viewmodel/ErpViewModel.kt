@@ -105,7 +105,9 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // 1. Authentication Controls
-    fun login(userId: String, role: String, pin: String, onOtpRequested: (Int) -> Unit, onError: (String) -> Unit) {
+    private var otpAttempts = 0
+
+    fun login(userId: String, role: String, pin: String, onBiometricRequested: (com.example.data.User) -> Unit, onOtpRequested: (Int) -> Unit, onError: (String) -> Unit) {
         if (userId.isBlank()) {
             onError("User ID / Mobile cannot be blank")
             return
@@ -133,20 +135,49 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 else -> {
                     _tempUser.value = user
-                    val code = (1000..9999).random()
-                    _generatedOtp.value = code
-                    _showOtpVerification.value = true
-                    onOtpRequested(code)
+                    if (user.isBiometricEnabled) {
+                        onBiometricRequested(user)
+                    } else {
+                        otpAttempts = 0
+                        val code = (1000..9999).random()
+                        _generatedOtp.value = code
+                        _showOtpVerification.value = true
+                        onOtpRequested(code)
+                    }
                 }
             }
         }
     }
 
+    fun proceedToOtp(onOtpRequested: (Int) -> Unit) {
+        otpAttempts = 0
+        val code = (1000..9999).random()
+        _generatedOtp.value = code
+        _showOtpVerification.value = true
+        onOtpRequested(code)
+    }
+
+    fun completeLoginWithoutOtp() {
+        val loggedInUser = _tempUser.value
+        _realCurrentUser.value = loggedInUser
+        loggedInUser?.let {
+            prefs.edit().putString("logged_in_user_id", it.userId).apply()
+        }
+        if (loggedInUser?.role == "Head") {
+            _headDeviceCount.value = (_headDeviceCount.value + 1).coerceAtMost(5)
+            _currentTab.value = "head_panel"
+        } else {
+            _currentTab.value = "dashboard"
+        }
+        _tempUser.value = null
+        _generatedOtp.value = null
+        _showOtpVerification.value = false
+    }
+
     fun verifyOtp(otpInput: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
-        val backupBackdoor = "1234"
         val expected = _generatedOtp.value?.toString() ?: ""
 
-        if (otpInput == expected || otpInput == backupBackdoor) {
+        if (otpInput == expected) {
             val loggedInUser = _tempUser.value
             _realCurrentUser.value = loggedInUser
             loggedInUser?.let {
@@ -163,7 +194,13 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
             _showOtpVerification.value = false
             onSuccess()
         } else {
-            onError("Invalid security verification code. Try again.")
+            otpAttempts++
+            if (otpAttempts >= 3) {
+                cancelOtpFlow()
+                onError("Maximum failed attempts reached. Access blocked.")
+            } else {
+                onError("Invalid security verification code. Try again.")
+            }
         }
     }
 
@@ -468,11 +505,11 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun editUserByAdmin(userId: String, name: String, mobile: String, parentMobile: String?, batch: String?, subjects: String?) {
+    fun editUserByAdmin(userId: String, name: String, mobile: String, parentMobile: String?, batch: String?, subjects: String?, isBiometricEnabled: Boolean = false) {
         viewModelScope.launch {
             val user = repository.findUserByIdOrMobile(userId)
             if (user != null) {
-                val updated = user.copy(name = name, mobile = mobile, parentMobile = parentMobile, batch = batch, subjects = subjects)
+                val updated = user.copy(name = name, mobile = mobile, parentMobile = parentMobile, batch = batch, subjects = subjects, isBiometricEnabled = isBiometricEnabled)
                 repository.updateUser(updated)
             }
         }
@@ -820,6 +857,245 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteSchedule(id: Int) {
         viewModelScope.launch {
             repository.deleteExamSchedule(id)
+        }
+    }
+
+    // Pro Examination Engine States
+    private val _proExams = MutableStateFlow<List<ProExam>>(emptyList())
+    val proExams: StateFlow<List<ProExam>> = _proExams.asStateFlow()
+
+    private val _activeProExam = MutableStateFlow<ProExam?>(null)
+    val activeProExam: StateFlow<ProExam?> = _activeProExam.asStateFlow()
+
+    private val _currentProQuestions = MutableStateFlow<List<ProQuestion>>(emptyList())
+    val currentProQuestions: StateFlow<List<ProQuestion>> = _currentProQuestions.asStateFlow()
+
+    private val _currentProOptions = MutableStateFlow<Map<String, List<ProQuestionOption>>>(emptyMap())
+    val currentProOptions: StateFlow<Map<String, List<ProQuestionOption>>> = _currentProOptions.asStateFlow()
+
+    private val _proAnswers = MutableStateFlow<Map<String, String?>>(emptyMap()) // QuestId -> OptionId
+    val proAnswers: StateFlow<Map<String, String?>> = _proAnswers.asStateFlow()
+
+    private val _proViolations = MutableStateFlow(0)
+    val proViolations: StateFlow<Int> = _proViolations.asStateFlow()
+
+    private val _proExamTimer = MutableStateFlow(0) // seconds
+    val proExamTimer: StateFlow<Int> = _proExamTimer.asStateFlow()
+
+    private var proExamJob: Job? = null
+
+    fun loadProExams() {
+        val user = _realCurrentUser.value ?: return
+        viewModelScope.launch {
+            val allExams = repository.getAllPublishedExams()
+            // Visibility logic: enrolled in batch AND subject
+            val userBatch = user.batch ?: ""
+            val userSubjects = user.subjects?.split(",")?.map { it.trim() } ?: emptyList()
+            
+            val visibleExams = allExams.filter { exam ->
+                val examBatches = exam.assignedBatches.split(",").map { it.trim() }
+                (userBatch in examBatches) && (exam.subject in userSubjects)
+            }
+            _proExams.value = visibleExams
+        }
+    }
+
+    fun startProExam(exam: ProExam) {
+        val user = _realCurrentUser.value ?: return
+        viewModelScope.launch {
+            val questions = repository.getQuestionsForExam(exam.examId)
+            val optionsMap = mutableMapOf<String, List<ProQuestionOption>>()
+            questions.forEach { q ->
+                optionsMap[q.questionId] = repository.getOptionsForQuestion(q.questionId)
+            }
+            
+            var attempt = repository.getProAttempt(user.userId, exam.examId)
+            if (attempt == null) {
+                attempt = ProExamAttempt(
+                    attemptId = "ATT-${System.currentTimeMillis()}",
+                    userId = user.userId,
+                    examId = exam.examId,
+                    startTime = System.currentTimeMillis()
+                )
+                repository.insertProAttempt(attempt)
+            } else if (attempt.status != "in_progress") {
+                // Already submitted
+                return@launch
+            }
+
+            // Restore answers
+            val savedAnswers = repository.getAnswersForAttempt(attempt.attemptId)
+            val answersMap = savedAnswers.associateBy({ it.questionId }, { it.selectedOptionId }).toMutableMap()
+            // Ensure all questions have an entry
+            questions.forEach { q ->
+                if (!answersMap.containsKey(q.questionId)) {
+                    answersMap[q.questionId] = null
+                }
+            }
+
+            _activeProExam.value = exam
+            _currentProQuestions.value = questions
+            _currentProOptions.value = optionsMap
+            _proAnswers.value = answersMap
+            _proViolations.value = attempt.violations
+            _proExamTimer.value = exam.durationMinutes * 60
+            
+            startProExamTimer()
+        }
+    }
+
+    private fun startProExamTimer() {
+        proExamJob?.cancel()
+        proExamJob = viewModelScope.launch {
+            while (_proExamTimer.value > 0) {
+                delay(1000)
+                _proExamTimer.value -= 1
+            }
+            submitProExam(isAutoSubmit = true)
+        }
+    }
+
+    fun saveProAnswer(questionId: String, optionId: String?) {
+        viewModelScope.launch {
+            val user = _realCurrentUser.value ?: return@launch
+            val activeExam = _activeProExam.value ?: return@launch
+            val attempt = repository.getProAttempt(user.userId, activeExam.examId) ?: return@launch
+            
+            val updatedAnswers = _proAnswers.value.toMutableMap()
+            updatedAnswers[questionId] = optionId
+            _proAnswers.value = updatedAnswers
+            
+            repository.saveProAnswer(ProAttemptAnswer(
+                attemptId = attempt.attemptId,
+                questionId = questionId,
+                selectedOptionId = optionId
+            ))
+        }
+    }
+
+    fun logProViolation(type: String) {
+        val user = _realCurrentUser.value ?: return
+        val activeExam = _activeProExam.value ?: return
+        if (activeExam.isStrictMode) {
+            viewModelScope.launch {
+                val attempt = repository.getProAttempt(user.userId, activeExam.examId) ?: return@launch
+                attempt.violations += 1
+                repository.updateProAttempt(attempt)
+                _proViolations.value = attempt.violations
+                
+                if (attempt.violations >= activeExam.maxLeavesAllowed) {
+                    submitProExam(isAutoSubmit = true)
+                }
+            }
+        }
+    }
+
+    fun submitProExam(isAutoSubmit: Boolean = false) {
+        val user = _realCurrentUser.value ?: return
+        val activeExam = _activeProExam.value ?: return
+        viewModelScope.launch {
+            val attempt = repository.getProAttempt(user.userId, activeExam.examId) ?: return@launch
+            attempt.status = if (isAutoSubmit) "auto_submitted" else "submitted"
+            attempt.submitTime = System.currentTimeMillis()
+            repository.updateProAttempt(attempt)
+            
+            // Clear local active state
+            proExamJob?.cancel()
+            _activeProExam.value = null
+            _currentProQuestions.value = emptyList()
+            _proAnswers.value = emptyMap()
+            _proExamTimer.value = 0
+            _currentTab.value = "dashboard" 
+        }
+    }
+
+    // Teacher Draft Management
+    private val _examDrafts = MutableStateFlow<List<ProExamDraft>>(emptyList())
+    val examDrafts: StateFlow<List<ProExamDraft>> = _examDrafts.asStateFlow()
+
+    fun loadDrafts() {
+        viewModelScope.launch {
+            _examDrafts.value = repository.getAllDrafts()
+        }
+    }
+
+    fun saveExamAsDraft(title: String, subject: String, questions: List<Pair<String, List<Pair<String, Boolean>>>>) {
+        viewModelScope.launch {
+            val draftId = "DRAFT-${System.currentTimeMillis()}"
+            val draft = ProExamDraft(
+                draftId = draftId,
+                title = title,
+                description = "Locally saved draft",
+                subject = subject,
+                totalMarks = questions.size
+            )
+            repository.insertDraft(draft)
+            
+            questions.forEachIndexed { qIdx, qData ->
+                val qId = "DQ-${draftId}-$qIdx"
+                repository.insertDraftQuestion(ProQuestionDraft(qId, draftId, qData.first))
+                qData.second.forEachIndexed { oIdx, oData ->
+                    repository.insertDraftOption(ProQuestionOptionDraft("DO-$qId-$oIdx", qId, oData.first, oData.second))
+                }
+            }
+            loadDrafts()
+        }
+    }
+
+    fun deleteDraft(draftId: String) {
+        viewModelScope.launch {
+            repository.deleteDraft(draftId)
+            loadDrafts()
+        }
+    }
+
+    fun publishDraft(draftId: String, startTime: Long, durationMinutes: Int, assignedBatches: String) {
+        viewModelScope.launch {
+            val draft = repository.getAllDrafts().find { it.draftId == draftId } ?: return@launch
+            val questions = repository.getDraftQuestions(draftId)
+            
+            val newExam = ProExam(
+                examId = "PRO-${System.currentTimeMillis()}",
+                title = draft.title,
+                description = draft.description,
+                subject = draft.subject,
+                assignedBatches = assignedBatches,
+                startTimestamp = startTime,
+                endTimestamp = startTime + (durationMinutes * 60 * 1000L),
+                durationMinutes = durationMinutes,
+                totalMarks = draft.totalMarks,
+                status = "Published",
+                isStrictMode = true
+            )
+            
+            repository.insertProExam(newExam)
+            
+            // Transfer questions
+            questions.forEach { dq ->
+                val nq = ProQuestion(dq.questionId, newExam.examId, dq.questionText, dq.explanation)
+                repository.insertProQuestion(nq)
+                val options = repository.getDraftOptions(dq.questionId)
+                options.forEach { opt ->
+                    repository.insertProOption(ProQuestionOption(opt.optionId, nq.questionId, opt.optionText, opt.isCorrect))
+                }
+            }
+            
+            // Delete draft after publishing
+            repository.deleteDraft(draftId)
+            
+            // Notify students via a system message in the chat
+            repository.insertChatMessage(ChatMessage(
+                senderId = "SYSTEM",
+                senderName = "System Alert",
+                senderRole = "Admin",
+                messageText = "New Exam Scheduled: ${newExam.title} for ${newExam.subject} on ${SimpleDateFormat("dd MMM").format(Date(startTime))}",
+                timestamp = System.currentTimeMillis(),
+                channelType = "Batch",
+                channelSubject = assignedBatches.split(",").firstOrNull()?.trim() ?: "General"
+            ))
+            
+            loadDrafts()
+            loadProExams()
         }
     }
 }

@@ -16,7 +16,8 @@ data class User(
     val status: String, // Pending, Active, Suspended
     val suspensionDurationDays: Int = 0,
     val suspensionStartDate: Long = 0,
-    val avatar: String = "U"
+    val avatar: String = "U",
+    val isBiometricEnabled: Boolean = false
 ) : java.io.Serializable
 
 @Entity(tableName = "courses")

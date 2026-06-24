@@ -36,6 +36,12 @@ data class ErpRoute(
 fun MainShellScreen(viewModel: ErpViewModel) {
     val currentTab by viewModel.currentTab.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
+    val activeProExam by viewModel.activeProExam.collectAsState()
+
+    if (activeProExam != null) {
+        ProExamScreen(viewModel = viewModel)
+        return
+    }
 
     val routes = remember {
         listOf(
@@ -59,6 +65,55 @@ fun MainShellScreen(viewModel: ErpViewModel) {
         }
     }
 
+    var showProfileDialog by remember { mutableStateOf(false) }
+
+    if (showProfileDialog && currentUser != null) {
+        var isBiometricEnabled by remember { mutableStateOf(currentUser!!.isBiometricEnabled) }
+        AlertDialog(
+            onDismissRequest = { showProfileDialog = false },
+            title = { Text("My Profile") },
+            text = {
+                Column {
+                    Text("Name: ${currentUser!!.name}", fontWeight = FontWeight.Bold)
+                    Text("Role: ${currentUser!!.role}")
+                    Text("ID: ${currentUser!!.userId}")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    if (currentUser!!.role == "Student") {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Enable Biometric Login")
+                            Switch(
+                                checked = isBiometricEnabled,
+                                onCheckedChange = { isBiometricEnabled = it }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (currentUser!!.role == "Student") {
+                        viewModel.editUserByAdmin(
+                            userId = currentUser!!.userId,
+                            name = currentUser!!.name,
+                            mobile = currentUser!!.mobile,
+                            parentMobile = currentUser!!.parentMobile,
+                            batch = currentUser!!.batch,
+                            subjects = currentUser!!.subjects,
+                            isBiometricEnabled = isBiometricEnabled
+                        )
+                    }
+                    showProfileDialog = false
+                }) {
+                    Text("Save & Close")
+                }
+            }
+        )
+    }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isWideScreen = maxWidth > 700.dp
 
@@ -80,6 +135,7 @@ fun MainShellScreen(viewModel: ErpViewModel) {
                     TopBarHeader(
                         currentUser = currentUser?.name ?: "Visitor",
                         currentUserRole = currentUser?.role ?: "Visitor",
+                        onProfileClick = { showProfileDialog = true },
                         onLogout = { viewModel.logout() },
                         onLiveClassClick = { viewModel.setTab("live") }
                     )
@@ -107,7 +163,13 @@ fun MainShellScreen(viewModel: ErpViewModel) {
                         "batches" -> BatchesScreen(viewModel = viewModel)
                         "gradebook" -> GradebookScreen(viewModel = viewModel)
                         "users" -> UserManagementScreen(viewModel = viewModel)
-                        "exams" -> ExamsScreen(viewModel = viewModel)
+                        "exams" -> {
+                            if (currentUser?.role == "Student") {
+                                ProExamListScreen(viewModel = viewModel)
+                            } else {
+                                ProExamManagerScreen(viewModel = viewModel)
+                            }
+                        }
                         "results" -> ResultsScreen(viewModel = viewModel)
                         "live" -> LiveClassScreen(viewModel = viewModel)
                         "calendar" -> CalendarScreen(viewModel = viewModel)
@@ -252,6 +314,7 @@ fun SidebarContent(
 fun TopBarHeader(
     currentUser: String,
     currentUserRole: String,
+    onProfileClick: () -> Unit,
     onLogout: () -> Unit,
     onLiveClassClick: () -> Unit
 ) {
@@ -347,14 +410,14 @@ fun TopBarHeader(
                     }
                 }
 
-                // Circle identifier graphic avatar (double-checks as logout toggle on compact phones)
+                // Circle identifier graphic avatar (opens profile dialog)
                 Box(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
                         .background(Color(0xFFDDE5D6))
                         .border(1.5.dp, Color(0xFFBBC9B8), CircleShape)
-                        .clickable { onLogout() },
+                        .clickable { onProfileClick() },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(

@@ -206,9 +206,9 @@ fun UserManagementScreen(viewModel: ErpViewModel) {
         EditUserDialog(
             user = user,
             onDismiss = { userToEdit = null },
-            onSave = { name, mobile, parentMobile, b, subjects ->
+            onSave = { name, mobile, parentMobile, b, subjects, isBiometricEnabled ->
                 checkNewSubjectsAndRun(user.role, subjects) { finalSubjects ->
-                    viewModel.editUserByAdmin(user.userId, name, mobile, parentMobile, b, finalSubjects)
+                    viewModel.editUserByAdmin(user.userId, name, mobile, parentMobile, b, finalSubjects, isBiometricEnabled)
                     userToEdit = null
                     Toast.makeText(context, "Directory record updated!", Toast.LENGTH_SHORT).show()
                 }
@@ -620,12 +620,13 @@ fun ActiveUserRow(
 fun EditUserDialog(
     user: User,
     onDismiss: () -> Unit,
-    onSave: (String, String, String?, String?, String?) -> Unit
+    onSave: (String, String, String?, String?, String?, Boolean) -> Unit
 ) {
     var name by remember { mutableStateOf(user.name) }
     var mobile by remember { mutableStateOf(user.mobile) }
     var batch by remember { mutableStateOf(user.batch ?: "") }
     var subjects by remember { mutableStateOf(user.subjects ?: "") }
+    var isBiometricEnabled by remember { mutableStateOf(user.isBiometricEnabled) }
     
     // Parent numbers dynamic editing
     val parentNumbers = remember {
@@ -645,7 +646,7 @@ fun EditUserDialog(
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
             ) {
                 OutlinedTextField(
                     value = name,
@@ -685,6 +686,24 @@ fun EditUserDialog(
                         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = JalaramPrimary),
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
+                
+                if (user.role == "Student") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Biometric Authentication", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Allow fingerprint/face ID login", fontSize = 12.sp, color = JalaramTextSub)
+                        }
+                        Switch(
+                            checked = isBiometricEnabled,
+                            onCheckedChange = { isBiometricEnabled = it },
+                            colors = SwitchDefaults.colors(checkedThumbColor = JalaramPrimary, checkedTrackColor = JalaramPrimaryLight)
+                        )
+                    }
                 }
 
                 if (user.role == "Student") {
@@ -747,7 +766,8 @@ fun EditUserDialog(
                         mobile,
                         if (pMobile.isNullOrBlank()) null else pMobile,
                         if (user.role == "Student" || user.role == "Teacher") batch else null,
-                        if (subjects.isBlank()) null else subjects
+                        if (subjects.isBlank()) null else subjects,
+                        isBiometricEnabled
                     )
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = JalaramPrimary)
