@@ -4,10 +4,15 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.*
+import com.example.util.SessionManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import com.google.firebase.auth.PhoneAuthProvider
+import android.app.Activity
+import com.google.firebase.FirebaseException
+import com.google.firebase.auth.PhoneAuthCredential
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -15,6 +20,8 @@ import java.util.Locale
 class ErpViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
     private val repository = DatabaseRepository(database)
+    private val authRepository = AuthRepository()
+    private val sessionManager = SessionManager(application)
 
     // Domain lists
     val usersList = repository.usersFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -89,9 +96,10 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             repository.seedDatabaseIfNeeded()
-            val savedUserId = prefs.getString("logged_in_user_id", null)
-            if (savedUserId != null) {
-                val savedUser = repository.findUserByIdOrMobile(savedUserId)
+            
+            // Device-bound persistent session check
+            if (sessionManager.isLoggedIn() && sessionManager.isDeviceBound()) {
+                val savedUser = sessionManager.getUserSession()
                 if (savedUser != null && savedUser.status != "Suspended") {
                     _realCurrentUser.value = savedUser
                     if (savedUser.role == "Head") {
@@ -210,13 +218,55 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
         _showOtpVerification.value = false
     }
 
-    fun logout() {
-        val user = _realCurrentUser.value
-        if (user?.role == "Head") {
-            _headDeviceCount.value = (_headDeviceCount.value - 1).coerceAtLeast(0)
+    private val _verificationId = MutableStateFlow<String?>(null)
+    val verificationId: StateFlow<String?> = _verificationId.asStateFlow()
+
+    fun loginWithEmail(email: String, pass: String) {
+        viewModelScope.launch {
+            val user = authRepository.signInWithEmail(email, pass)
+            if (user != null) {
+                sessionManager.saveUserSession(user)
+                _realCurrentUser.value = user
+                _currentTab.value = if (user.role == "Head") "head_panel" else "dashboard"
+            }
         }
+    }
+
+    fun startPhoneAuth(mobile: String, activity: Activity) {
+        authRepository.sendOtp(mobile, activity, object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+            override fun onVerificationCompleted(credential: PhoneAuthCredential) {
+                // Auto-verification
+                credential.smsCode?.let { verifyOtpFirebase(it) }
+            }
+
+            override fun onVerificationFailed(e: FirebaseException) {
+                // Handle error
+            }
+
+            override fun onCodeSent(id: String, token: PhoneAuthProvider.ForceResendingToken) {
+                _verificationId.value = id
+                _showOtpVerification.value = true
+            }
+        })
+    }
+
+    fun verifyOtpFirebase(otp: String) {
+        val id = _verificationId.value ?: return
+        viewModelScope.launch {
+            val user = authRepository.signInWithOtp(id, otp)
+            if (user != null) {
+                sessionManager.saveUserSession(user)
+                _realCurrentUser.value = user
+                _currentTab.value = if (user.role == "Head") "head_panel" else "dashboard"
+                _showOtpVerification.value = false
+            }
+        }
+    }
+
+    fun logout() {
+        authRepository.signOut()
+        sessionManager.logout()
         _realCurrentUser.value = null
-        prefs.edit().remove("logged_in_user_id").apply()
         _currentTab.value = "dashboard"
         stopLiveClass()
         cancelExam()
@@ -1097,5 +1147,10 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
             loadDrafts()
             loadProExams()
         }
+    }
+
+    fun canEditOrDeleteExam(exam: ProExam): Boolean {
+        // Administrative edits are forbidden once an exam is Live or Completed
+        return exam.getStatus() == ProExamStatus.Scheduled
     }
 }

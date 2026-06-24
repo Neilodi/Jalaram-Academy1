@@ -92,11 +92,13 @@ dependencies {
   implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
+  implementation(libs.androidx.security.crypto)
+  implementation(libs.gson)
   // implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)
-  // implementation(libs.firebase.auth) // Uncomment after adding google-services.json
-  // implementation(libs.firebase.firestore) // Uncomment after adding google-services.json
+  implementation(libs.firebase.auth)
+  implementation(libs.firebase.firestore)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.logging.interceptor)

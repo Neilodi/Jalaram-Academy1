@@ -49,6 +49,13 @@ data class ProExamAttempt(
     var isSynced: Boolean = false
 )
 
+enum class ProExamStatus {
+    Draft,
+    Scheduled,
+    Live,
+    Completed
+}
+
 @Entity(tableName = "pro_attempt_answers")
 data class ProAttemptAnswer(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
@@ -57,6 +64,15 @@ data class ProAttemptAnswer(
     val selectedOptionId: String?,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+fun ProExam.getStatus(): ProExamStatus {
+    val now = System.currentTimeMillis()
+    return when {
+        now < startTimestamp -> ProExamStatus.Scheduled
+        now in startTimestamp..endTimestamp -> ProExamStatus.Live
+        else -> ProExamStatus.Completed
+    }
+}
 
 @Entity(tableName = "pro_exam_drafts")
 data class ProExamDraft(

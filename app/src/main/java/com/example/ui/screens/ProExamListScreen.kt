@@ -20,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.ProExam
+import com.example.data.ProExamStatus
+import com.example.data.getStatus
 import com.example.ui.theme.*
 import com.example.viewmodel.ErpViewModel
 import java.text.SimpleDateFormat
@@ -38,9 +40,9 @@ fun ProExamListScreen(viewModel: ErpViewModel) {
     val currentTime = System.currentTimeMillis()
     
     val filteredExams = when (selectedTab) {
-        0 -> exams.filter { currentTime in it.startTimestamp..it.endTimestamp }
-        1 -> exams.filter { currentTime < it.startTimestamp }
-        else -> exams.filter { currentTime > it.endTimestamp }
+        0 -> exams.filter { it.getStatus() == ProExamStatus.Live }
+        1 -> exams.filter { it.getStatus() == ProExamStatus.Scheduled }
+        else -> exams.filter { it.getStatus() == ProExamStatus.Completed }
     }
 
     Column(modifier = Modifier.fillMaxSize().background(JalaramBgMain)) {

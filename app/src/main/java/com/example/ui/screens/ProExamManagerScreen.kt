@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.ProExam
 import com.example.data.ProExamDraft
+import com.example.data.ProExamStatus
+import com.example.data.getStatus
 import com.example.ui.theme.*
 import com.example.viewmodel.ErpViewModel
 import java.text.SimpleDateFormat
@@ -146,6 +148,14 @@ fun EmptyState(message: String) {
 
 @Composable
 fun ManagerExamCard(exam: ProExam) {
+    val status = exam.getStatus()
+    val statusColor = when (status) {
+        ProExamStatus.Scheduled -> JalaramPrimary
+        ProExamStatus.Live -> Color.Red
+        ProExamStatus.Completed -> Color.Gray
+        else -> Color.Black
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -153,23 +163,52 @@ fun ManagerExamCard(exam: ProExam) {
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier.size(40.dp).background(JalaramPrimary.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.CheckCircle, null, tint = JalaramPrimary)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.size(40.dp).background(statusColor.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val icon = when (status) {
+                            ProExamStatus.Scheduled -> Icons.Default.Schedule
+                            ProExamStatus.Live -> Icons.Default.FiberManualRecord
+                            else -> Icons.Default.CheckCircle
+                        }
+                        Icon(icon, null, tint = statusColor, modifier = if (status == ProExamStatus.Live) Modifier.size(16.dp) else Modifier.size(24.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(exam.title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(exam.subject, color = JalaramPrimary, fontSize = 12.sp)
+                    }
                 }
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text(exam.title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Text(exam.subject, color = JalaramPrimary, fontSize = 12.sp)
+                
+                Surface(
+                    color = statusColor.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = status.name.uppercase(),
+                        color = statusColor,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
                 }
             }
             Spacer(Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Marks: ${exam.totalMarks}", fontSize = 12.sp, color = Color.Gray)
                 Text("Batches: ${exam.assignedBatches}", fontSize = 12.sp, color = Color.Gray)
+            }
+            
+            if (status != ProExamStatus.Scheduled) {
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Lock, null, tint = Color.Gray, modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Administrative edits disabled for $status exams", fontSize = 10.sp, color = Color.Gray)
+                }
             }
         }
     }
