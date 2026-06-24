@@ -54,9 +54,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun Modifier.preventHackClicks(viewModel: ErpViewModel): Modifier {
     val context = LocalContext.current
-    val hackPreventionEnabled by viewModel.hackPreventionEnabled.collectAsState()
-
-    if (!hackPreventionEnabled) return this
 
     return this.pointerInput(Unit) {
         awaitPointerEventScope {

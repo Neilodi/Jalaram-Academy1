@@ -40,6 +40,7 @@ fun MainShellScreen(viewModel: ErpViewModel) {
     val routes = remember {
         listOf(
             ErpRoute("dashboard", "Dashboard", Icons.Default.Dashboard, listOf("Admin", "Teacher", "Student")),
+            ErpRoute("head_panel", "Head Controls", Icons.Default.Security, listOf("Head")),
             ErpRoute("courses", "Course Library", Icons.Default.MenuBook, listOf("Admin", "Teacher", "Student")),
             ErpRoute("batches", "My Batches", Icons.Default.MeetingRoom, listOf("Admin", "Teacher")),
             ErpRoute("gradebook", "Gradebook", Icons.Default.AssignmentTurnedIn, listOf("Admin", "Teacher")),
@@ -47,7 +48,8 @@ fun MainShellScreen(viewModel: ErpViewModel) {
             ErpRoute("exams", "Examinations", Icons.Default.Assignment, listOf("Admin", "Teacher", "Student")),
             ErpRoute("results", "Performance", Icons.Default.BarChart, listOf("Admin", "Teacher", "Student")),
             ErpRoute("live", "Live Classroom", Icons.Default.Videocam, listOf("Admin", "Teacher", "Student")),
-            ErpRoute("chats", "Academy Chats", Icons.Default.Forum, listOf("Admin", "Teacher", "Student"))
+            ErpRoute("calendar", "Calendar", Icons.Default.CalendarMonth, listOf("Admin", "Teacher", "Student")),
+            ErpRoute("chats", "Academy Chats", Icons.Default.Forum, listOf("Admin", "Teacher", "Student", "Head"))
         )
     }
 
@@ -78,7 +80,8 @@ fun MainShellScreen(viewModel: ErpViewModel) {
                     TopBarHeader(
                         currentUser = currentUser?.name ?: "Visitor",
                         currentUserRole = currentUser?.role ?: "Visitor",
-                        onLogout = { viewModel.logout() }
+                        onLogout = { viewModel.logout() },
+                        onLiveClassClick = { viewModel.setTab("live") }
                     )
                 },
                 bottomBar = {
@@ -107,7 +110,9 @@ fun MainShellScreen(viewModel: ErpViewModel) {
                         "exams" -> ExamsScreen(viewModel = viewModel)
                         "results" -> ResultsScreen(viewModel = viewModel)
                         "live" -> LiveClassScreen(viewModel = viewModel)
+                        "calendar" -> CalendarScreen(viewModel = viewModel)
                         "chats" -> ChatsScreen(viewModel = viewModel)
+                        "head_panel" -> HeadPanelScreen(viewModel = viewModel)
                         else -> {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
@@ -247,13 +252,14 @@ fun SidebarContent(
 fun TopBarHeader(
     currentUser: String,
     currentUserRole: String,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onLiveClassClick: () -> Unit
 ) {
     TopAppBar(
         title = {
             Column {
                 Text(
-                    text = "Jalaram Academy Portal",
+                    text = "Jalaram Academy",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
@@ -268,6 +274,34 @@ fun TopBarHeader(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.padding(end = 16.dp)
             ) {
+                // Top-right Live Class Button
+                Button(
+                    onClick = onLiveClassClick,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = JalaramPrimary,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier
+                        .height(36.dp)
+                        .testTag("top_bar_live_class_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Videocam,
+                        contentDescription = "Live Class Stream",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Live Class",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+
                 // Theme Toggle Button
                 IconButton(onClick = { isAppInDarkMode = !isAppInDarkMode }) {
                     Icon(

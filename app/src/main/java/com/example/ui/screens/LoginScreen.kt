@@ -43,17 +43,12 @@ fun LoginScreen(
     val showOtpVerification by viewModel.showOtpVerification.collectAsState()
     val generatedOtp by viewModel.generatedOtp.collectAsState()
     val headDeviceCount by viewModel.headDeviceCount.collectAsState()
+    val headDeviceLimit by viewModel.headDeviceLimit.collectAsState()
 
     var selectedRole by remember { mutableStateOf("Student") }
     var userIdInput by remember { mutableStateOf("") }
     var pinInput by remember { mutableStateOf("") }
     var otpInput by remember { mutableStateOf("") }
-
-    LaunchedEffect(headDeviceCount) {
-        if (headDeviceCount >= 3 && selectedRole == "Head") {
-            selectedRole = "Student"
-        }
-    }
 
     Box(
         modifier = Modifier
@@ -202,7 +197,7 @@ fun LoginScreen(
                                         onDismissRequest = { expanded = false },
                                         modifier = Modifier.background(JalaramSurface)
                                     ) {
-                                        val rolesList = if (headDeviceCount >= 3) {
+                                        val rolesList = if (false) {
                                             listOf("Student", "Teacher", "Admin")
                                         } else {
                                             listOf("Student", "Teacher", "Admin", "Head")
@@ -290,7 +285,7 @@ fun LoginScreen(
                                             onOtpRequested = { otp ->
                                                 Toast.makeText(
                                                     context,
-                                                    "[SIMULATION MODE]\nSecurity OTP Sent! Verification Code: $otp",
+                                                    "[SIMULATION MODE]\nSecurity OTP Sent to ALL registered devices! Verification Code: $otp",
                                                     Toast.LENGTH_LONG
                                                 ).show()
                                             },

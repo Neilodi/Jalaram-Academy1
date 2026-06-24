@@ -45,8 +45,7 @@ fun UserManagementScreen(viewModel: ErpViewModel) {
     var detectedNewSubjects by remember { mutableStateOf<List<String>>(emptyList()) }
     var originalSubjectsToProcess by remember { mutableStateOf("") }
 
-    val simulationRole by viewModel.simulationRole.collectAsState()
-    val hackPreventionEnabled by viewModel.hackPreventionEnabled.collectAsState()
+    val headDeviceLimit by viewModel.headDeviceLimit.collectAsState()
 
     val pendingUsers = remember(usersList) { usersList.filter { it.status == "Pending" } }
     val activeUsers = remember(usersList, searchQuery) {
@@ -70,155 +69,6 @@ fun UserManagementScreen(viewModel: ErpViewModel) {
                 border = BorderStroke(1.dp, JalaramBorder)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = "🛠️ System Administration Panel",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = JalaramPrimary
-                        )
-                    )
-
-                    Divider(color = JalaramBorder.copy(alpha = 0.5f))
-
-                    // Simulation mode section
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = "Simulate Academy View Mode",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = JalaramTextMain
-                        )
-                        Text(
-                            text = "Switch active view permissions to Student or Teacher to test user flows and troubleshoot application issues.",
-                            fontSize = 12.sp,
-                            color = JalaramTextSub,
-                            lineHeight = 16.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            val rolesToSim = listOf("Student", "Teacher")
-                            rolesToSim.forEach { role ->
-                                val isSelected = simulationRole == role
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = {
-                                        if (isSelected) {
-                                            viewModel.setSimulationRole(null)
-                                        } else {
-                                            viewModel.setSimulationRole(role)
-                                        }
-                                    },
-                                    label = { Text(role) },
-                                    leadingIcon = if (isSelected) {
-                                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                    } else null,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = JalaramPrimaryLight,
-                                        selectedLabelColor = JalaramPrimary
-                                    )
-                                )
-                            }
-                            
-                            // Reset back to actual Admin
-                            val isActualAdmin = simulationRole == null
-                            FilterChip(
-                                selected = isActualAdmin,
-                                onClick = { viewModel.setSimulationRole(null) },
-                                label = { Text("Admin (Actual)") },
-                                leadingIcon = if (isActualAdmin) {
-                                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                } else null,
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = JalaramSuccessContainer,
-                                    selectedLabelColor = JalaramSuccess
-                                )
-                            )
-                        }
-                    }
-
-                    Divider(color = JalaramBorder.copy(alpha = 0.5f))
-
-                    // Hack prevention toggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Hack-Prevention Mode (Blocks Right-Click)",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = JalaramTextMain
-                            )
-                            Text(
-                                text = "Blocks secondary mouse click and context menus to secure online assessments.",
-                                fontSize = 12.sp,
-                                color = JalaramTextSub
-                            )
-                        }
-                        Switch(
-                            checked = hackPreventionEnabled,
-                            onCheckedChange = { viewModel.setHackPreventionEnabled(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = JalaramSuccess
-                            )
-                        )
-                    }
-
-                    Divider(color = JalaramBorder.copy(alpha = 0.5f))
-
-                    // Head Controller devices count simulation
-                    val headDeviceCount by viewModel.headDeviceCount.collectAsState()
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Head Controller Logged Devices",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = JalaramTextMain
-                            )
-                            Text(
-                                text = "Simulates Head logins. If >= 3, the Head role disappears from registration/login.",
-                                fontSize = 12.sp,
-                                color = JalaramTextSub
-                            )
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            IconButton(
-                                onClick = { viewModel.setHeadDeviceCount(headDeviceCount - 1) },
-                                enabled = headDeviceCount > 0
-                            ) {
-                                Icon(Icons.Default.Remove, contentDescription = "Decrease devices")
-                            }
-                            Text(
-                                text = headDeviceCount.toString(),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
-                                color = JalaramPrimary
-                            )
-                            IconButton(
-                                onClick = { viewModel.setHeadDeviceCount(headDeviceCount + 1) },
-                                enabled = headDeviceCount < 5
-                            ) {
-                                Icon(Icons.Default.Add, contentDescription = "Increase devices")
-                            }
-                        }
-                    }
-
-                    Divider(color = JalaramBorder.copy(alpha = 0.5f))
-
                     // Add user button
                     Button(
                         onClick = { showAddUserDialog = true },
@@ -748,12 +598,19 @@ fun ActiveUserRow(
                 }
             }
 
-            IconButton(onClick = onEditClick) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit directory user record",
-                    tint = JalaramPrimary
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (user.role == "Student") {
+                    IconButton(onClick = { /* TODO: Implement suspend */ }) {
+                        Icon(imageVector = Icons.Default.Block, contentDescription = "Suspend student", tint = JalaramDanger)
+                    }
+                }
+                IconButton(onClick = onEditClick) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit directory user record",
+                        tint = JalaramPrimary
+                    )
+                }
             }
         }
     }
@@ -914,6 +771,7 @@ fun ApproveUserDialog(
     onApprove: (String, String, String, String, String?, String?, String?) -> Unit
 ) {
     val headDeviceCount by viewModel.headDeviceCount.collectAsState()
+    val headDeviceLimit by viewModel.headDeviceLimit.collectAsState()
 
     var userId by remember { mutableStateOf(user.userId) }
     var name by remember { mutableStateOf(user.name) }
@@ -995,7 +853,7 @@ fun ApproveUserDialog(
                         onDismissRequest = { expandedRoleDropdown = false },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        val rolesList = if (headDeviceCount >= 3) {
+                        val rolesList = if (false) {
                             listOf("Student", "Teacher", "Admin")
                         } else {
                             listOf("Student", "Teacher", "Admin", "Head")
@@ -1104,6 +962,7 @@ fun AddUserDialog(
     onSave: (name: String, role: String, mobile: String, parentMobile: String?, batch: String?, subjects: String?, pin: String, status: String) -> Unit
 ) {
     val headDeviceCount by viewModel.headDeviceCount.collectAsState()
+    val headDeviceLimit by viewModel.headDeviceLimit.collectAsState()
 
     var name by remember { mutableStateOf("") }
     var role by remember { mutableStateOf("Student") }
@@ -1163,7 +1022,7 @@ fun AddUserDialog(
                         expanded = roleExpanded,
                         onDismissRequest = { roleExpanded = false }
                     ) {
-                        val rolesList = if (headDeviceCount >= 3) {
+                        val rolesList = if (false) {
                             listOf("Student", "Teacher", "Admin")
                         } else {
                             listOf("Student", "Teacher", "Admin", "Head")

@@ -16,9 +16,11 @@ import androidx.room.RoomDatabase
         ChatMessage::class,
         ExamSchedule::class,
         LiveClassSession::class,
-        LectureMaterial::class
+        LectureMaterial::class,
+        CourseEnrollment::class,
+        AssignmentDeadline::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -32,6 +34,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun examScheduleDao(): ExamScheduleDao
     abstract fun liveClassDao(): LiveClassDao
     abstract fun lectureMaterialDao(): LectureMaterialDao
+    abstract fun enrollmentDao(): CourseEnrollmentDao
+    abstract fun deadlineDao(): AssignmentDeadlineDao
 
     companion object {
         @Volatile

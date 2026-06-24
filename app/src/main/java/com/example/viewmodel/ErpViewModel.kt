@@ -27,37 +27,27 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
     val examSchedulesList = repository.allSchedulesFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val activeLiveClasses = repository.activeLiveClassesFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val lectureMaterialsList = repository.lectureMaterialsFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val deadlinesList = repository.deadlinesFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val enrollmentsList = repository.getEnrollmentsFlow().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Authentication States
     private val _realCurrentUser = MutableStateFlow<User?>(null)
-    private val _simulationRole = MutableStateFlow<String?>(null)
-    val simulationRole: StateFlow<String?> = _simulationRole.asStateFlow()
-
-    private val _hackPreventionEnabled = MutableStateFlow(true)
-    val hackPreventionEnabled: StateFlow<Boolean> = _hackPreventionEnabled.asStateFlow()
 
     private val _headDeviceCount = MutableStateFlow(0)
     val headDeviceCount: StateFlow<Int> = _headDeviceCount.asStateFlow()
+
+    private val _headDeviceLimit = MutableStateFlow(3)
+    val headDeviceLimit: StateFlow<Int> = _headDeviceLimit.asStateFlow()
 
     fun setHeadDeviceCount(count: Int) {
         _headDeviceCount.value = count.coerceAtLeast(0)
     }
 
-    val currentUser: StateFlow<User?> = combine(_realCurrentUser, _simulationRole) { realUser, simRole ->
-        if (realUser != null && realUser.role == "Admin" && simRole != null) {
-            realUser.copy(role = simRole)
-        } else {
-            realUser
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    fun setSimulationRole(role: String?) {
-        _simulationRole.value = role
+    fun setHeadDeviceLimit(limit: Int) {
+        _headDeviceLimit.value = limit.coerceAtLeast(1)
     }
 
-    fun setHackPreventionEnabled(enabled: Boolean) {
-        _hackPreventionEnabled.value = enabled
-    }
+    val currentUser: StateFlow<User?> = _realCurrentUser.asStateFlow()
 
     private val _tempUser = MutableStateFlow<User?>(null)
     val tempUser: StateFlow<User?> = _tempUser.asStateFlow()
@@ -94,9 +84,23 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
 
     private var examJob: Job? = null
 
+    private val prefs = application.getSharedPreferences("erp_prefs", android.content.Context.MODE_PRIVATE)
+
     init {
         viewModelScope.launch {
             repository.seedDatabaseIfNeeded()
+            val savedUserId = prefs.getString("logged_in_user_id", null)
+            if (savedUserId != null) {
+                val savedUser = repository.findUserByIdOrMobile(savedUserId)
+                if (savedUser != null && savedUser.status != "Suspended") {
+                    _realCurrentUser.value = savedUser
+                    if (savedUser.role == "Head") {
+                        _currentTab.value = "head_panel"
+                    } else {
+                        _currentTab.value = "dashboard"
+                    }
+                }
+            }
         }
     }
 
@@ -145,13 +149,18 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
         if (otpInput == expected || otpInput == backupBackdoor) {
             val loggedInUser = _tempUser.value
             _realCurrentUser.value = loggedInUser
+            loggedInUser?.let {
+                prefs.edit().putString("logged_in_user_id", it.userId).apply()
+            }
             if (loggedInUser?.role == "Head") {
                 _headDeviceCount.value = (_headDeviceCount.value + 1).coerceAtMost(5)
+                _currentTab.value = "head_panel"
+            } else {
+                _currentTab.value = "dashboard"
             }
             _tempUser.value = null
             _generatedOtp.value = null
             _showOtpVerification.value = false
-            _currentTab.value = "dashboard"
             onSuccess()
         } else {
             onError("Invalid security verification code. Try again.")
@@ -170,7 +179,7 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
             _headDeviceCount.value = (_headDeviceCount.value - 1).coerceAtLeast(0)
         }
         _realCurrentUser.value = null
-        _simulationRole.value = null
+        prefs.edit().remove("logged_in_user_id").apply()
         _currentTab.value = "dashboard"
         stopLiveClass()
         cancelExam()
@@ -299,6 +308,20 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
                 content = "A new subject domain '$category' has been registered in the course library.",
                 type = "System"
             )
+        }
+    }
+
+    fun suspendUser(userId: String, days: Int) {
+        viewModelScope.launch {
+            val user = repository.findUserByIdOrMobile(userId)
+            if (user != null) {
+                val updatedUser = user.copy(
+                    status = "Suspended",
+                    suspensionDurationDays = days,
+                    suspensionStartDate = System.currentTimeMillis()
+                )
+                repository.updateUser(updatedUser)
+            }
         }
     }
 

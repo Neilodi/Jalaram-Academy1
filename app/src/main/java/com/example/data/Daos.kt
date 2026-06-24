@@ -168,4 +168,28 @@ interface LectureMaterialDao {
     suspend fun clearAllMaterials()
 }
 
+@Dao
+interface CourseEnrollmentDao {
+    @Query("SELECT * FROM course_enrollments")
+    fun getAllEnrollmentsFlow(): Flow<List<CourseEnrollment>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertEnrollment(enrollment: CourseEnrollment)
+
+    @Query("DELETE FROM course_enrollments WHERE studentId = :studentId AND batchId = :batchId")
+    suspend fun deleteEnrollment(studentId: String, batchId: Int)
+}
+
+@Dao
+interface AssignmentDeadlineDao {
+    @Query("SELECT * FROM assignment_deadlines ORDER BY deadlineDate ASC")
+    fun getAllDeadlinesFlow(): Flow<List<AssignmentDeadline>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDeadline(deadline: AssignmentDeadline)
+
+    @Query("DELETE FROM assignment_deadlines WHERE id = :id")
+    suspend fun deleteDeadline(id: Int)
+}
+
 

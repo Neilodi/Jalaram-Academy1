@@ -39,6 +39,7 @@ fun RegisterScreen(
     val batchesList by viewModel.batchesList.collectAsState()
 
     val headDeviceCount by viewModel.headDeviceCount.collectAsState()
+    val headDeviceLimit by viewModel.headDeviceLimit.collectAsState()
 
     var regRole by remember { mutableStateOf("Student") }
     var regName by remember { mutableStateOf("") }
@@ -51,12 +52,6 @@ fun RegisterScreen(
     // Dropdown state for Batch
     var selectedBatch by remember { mutableStateOf("JEE Mains") }
     var batchDropdownExpanded by remember { mutableStateOf(false) }
-
-    LaunchedEffect(headDeviceCount) {
-        if (headDeviceCount >= 3 && regRole == "Head") {
-            regRole = "Student"
-        }
-    }
 
     Box(
         modifier = Modifier
@@ -168,7 +163,7 @@ fun RegisterScreen(
                             onDismissRequest = { roleDropdownExpanded = false },
                             modifier = Modifier.background(JalaramSurface)
                         ) {
-                            val rolesList = if (headDeviceCount >= 3) {
+                            val rolesList = if (false) {
                                 listOf("Student", "Teacher", "Admin")
                             } else {
                                 listOf("Student", "Teacher", "Admin", "Head")

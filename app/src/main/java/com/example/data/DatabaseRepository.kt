@@ -83,6 +83,18 @@ class DatabaseRepository(private val db: AppDatabase) {
 
     val lectureMaterialsFlow: Flow<List<LectureMaterial>> = db.lectureMaterialDao().getAllMaterialsFlow()
 
+    fun getEnrollmentsFlow(): Flow<List<CourseEnrollment>> = db.enrollmentDao().getAllEnrollmentsFlow()
+
+    suspend fun insertEnrollment(enrollment: CourseEnrollment) = db.enrollmentDao().insertEnrollment(enrollment)
+
+    suspend fun deleteEnrollment(studentId: String, batchId: Int) = db.enrollmentDao().deleteEnrollment(studentId, batchId)
+
+    val deadlinesFlow: Flow<List<AssignmentDeadline>> = db.deadlineDao().getAllDeadlinesFlow()
+
+    suspend fun insertDeadline(deadline: AssignmentDeadline) = db.deadlineDao().insertDeadline(deadline)
+
+    suspend fun deleteDeadline(id: Int) = db.deadlineDao().deleteDeadline(id)
+
     fun getLectureMaterialsBySubjectFlow(subject: String): Flow<List<LectureMaterial>> =
         db.lectureMaterialDao().getMaterialsBySubjectFlow(subject)
 

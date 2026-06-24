@@ -14,6 +14,8 @@ data class User(
     val subjects: String? = null, // Comma separated
     val pin: String,
     val status: String, // Pending, Active, Suspended
+    val suspensionDurationDays: Int = 0,
+    val suspensionStartDate: Long = 0,
     val avatar: String = "U"
 ) : java.io.Serializable
 
@@ -156,6 +158,22 @@ data class LectureMaterial(
     val uploadedBy: String,
     val fileSize: String,
     val description: String
+) : java.io.Serializable
+
+@Entity(tableName = "course_enrollments")
+data class CourseEnrollment(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val studentId: String,
+    val batchId: Int
+) : java.io.Serializable
+
+@Entity(tableName = "assignment_deadlines")
+data class AssignmentDeadline(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val title: String,
+    val subject: String,
+    val deadlineDate: String, // YYYY-MM-DD
+    val isCompleted: Boolean = false
 ) : java.io.Serializable
 
 
