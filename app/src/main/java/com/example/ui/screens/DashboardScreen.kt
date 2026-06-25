@@ -235,6 +235,15 @@ fun DashboardScreen(viewModel: ErpViewModel) {
                 )
             }
         }
+        
+        if (currentUser?.role == "Teacher") {
+            item {
+                FacultyWidgetsModule(
+                    currentUser = currentUser!!,
+                    viewModel = viewModel
+                )
+            }
+        }
 
         // Notice Board Section Header
         item {
@@ -578,6 +587,118 @@ fun CreateNoticeDialog(
             }
         }
     )
+}
+
+@Composable
+fun FacultyWidgetsModule(
+    currentUser: User,
+    viewModel: ErpViewModel
+) {
+    val batchesList by viewModel.batchesList.collectAsState()
+    val teacherBatches = remember(batchesList) {
+        val teacherBatchNames = currentUser.batch?.split(",")?.map { it.trim() } ?: emptyList()
+        batchesList.filter { it.name in teacherBatchNames || it.teacherId == currentUser.userId }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "Faculty Toolkit",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold,
+                color = JalaramTextMain
+            ),
+            modifier = Modifier.padding(bottom = 2.dp)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            FacultyActionCard(
+                title = "Attendance",
+                subtitle = "Mark & View",
+                icon = Icons.Default.HowToReg,
+                color = JalaramPrimary,
+                modifier = Modifier.weight(1f),
+                onClick = { viewModel.setTab("attendance") }
+            )
+            FacultyActionCard(
+                title = "Gradebook",
+                subtitle = "Update Scores",
+                icon = Icons.Default.AssignmentTurnedIn,
+                color = JalaramSuccess,
+                modifier = Modifier.weight(1f),
+                onClick = { viewModel.setTab("gradebook") }
+            )
+        }
+
+        FacultyActionCard(
+            title = "My Rosters",
+            subtitle = "Manage ${teacherBatches.size} Assigned Batches",
+            icon = Icons.Default.Groups,
+            color = JalaramAccent,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { viewModel.setTab("batches") }
+        )
+    }
+}
+
+@Composable
+fun FacultyActionCard(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = JalaramSurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(color.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = JalaramTextMain
+                    )
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = FontWeight.Medium,
+                        color = JalaramTextSub
+                    )
+                )
+            }
+        }
+    }
 }
 
 @Composable

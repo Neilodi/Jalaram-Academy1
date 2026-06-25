@@ -29,9 +29,18 @@ import com.example.viewmodel.ErpViewModel
 @Composable
 fun BatchesScreen(viewModel: ErpViewModel) {
     val context = LocalContext.current
-    val batchesList by viewModel.batchesList.collectAsState()
+    val batchesListFlow by viewModel.batchesList.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val usersList by viewModel.usersList.collectAsState()
+    
+    val batchesList = remember(batchesListFlow, currentUser) {
+        if (currentUser?.role == "Teacher") {
+            val teacherBatchNames = currentUser?.batch?.split(",")?.map { it.trim() } ?: emptyList()
+            batchesListFlow.filter { it.name in teacherBatchNames || it.teacherId == currentUser?.userId }
+        } else {
+            batchesListFlow
+        }
+    }
 
     var showCreateBatchDialog by remember { mutableStateOf(false) }
     var editingBatch by remember { mutableStateOf<AcademyBatch?>(null) }
