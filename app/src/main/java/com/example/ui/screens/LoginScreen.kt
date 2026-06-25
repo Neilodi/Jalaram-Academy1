@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.app.Activity
 import android.widget.Toast
 import androidx.fragment.app.FragmentActivity
 import androidx.biometric.BiometricPrompt
@@ -16,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
