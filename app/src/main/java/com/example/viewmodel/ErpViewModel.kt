@@ -9,6 +9,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import com.google.firebase.auth.PhoneAuthProvider
 import android.app.Activity
 import com.google.firebase.FirebaseException
@@ -24,6 +25,9 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
     private val sessionManager = SessionManager(application)
 
     // Domain lists
+    private val _isLoadingDashboard = MutableStateFlow(true)
+    val isLoadingDashboard: StateFlow<Boolean> = _isLoadingDashboard.asStateFlow()
+
     val usersList = repository.usersFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val coursesList = repository.coursesFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val batchesList = repository.batchesFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -96,6 +100,8 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             repository.seedDatabaseIfNeeded()
+            delay(1500) // Simulate network loading for skeleton demo
+            _isLoadingDashboard.value = false
             
             // Device-bound persistent session check
             if (sessionManager.isLoggedIn() && sessionManager.isDeviceBound()) {
@@ -357,8 +363,15 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
                 "Teacher" -> "TCH"
                 else -> "ADM"
             }
-            val randomId = (1000..9999).random()
-            val newUserId = "$prefix-$randomId"
+            val allUsers = repository.getAllUsers()
+            val regex = Regex("^$prefix(\\d+)$")
+            val maxIdNum = allUsers
+                .map { it.userId }
+                .mapNotNull { regex.find(it)?.groupValues?.get(1)?.toIntOrNull() }
+                .maxOrNull() ?: 0
+            val nextIdNum = maxIdNum + 1
+            val formattedNum = if (nextIdNum < 1000) String.format("%03d", nextIdNum) else nextIdNum.toString()
+            val newUserId = "$prefix$formattedNum"
 
             val newUser = User(
                 userId = newUserId,
@@ -502,6 +515,15 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun clearAllPendingUsers() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val pendingUsers = repository.getAllUsers().filter { it.status == "Pending" }
+            pendingUsers.forEach { user ->
+                repository.deleteUser(user.userId)
+            }
+        }
+    }
+
     fun addNewUserByAdmin(
         name: String,
         role: String,
@@ -531,8 +553,15 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
                 "Teacher" -> "TCH"
                 else -> "ADM"
             }
-            val randomId = (1000..9999).random()
-            val newUserId = "$prefix-$randomId"
+            val allUsers = repository.getAllUsers()
+            val regex = Regex("^$prefix(\\d+)$")
+            val maxIdNum = allUsers
+                .map { it.userId }
+                .mapNotNull { regex.find(it)?.groupValues?.get(1)?.toIntOrNull() }
+                .maxOrNull() ?: 0
+            val nextIdNum = maxIdNum + 1
+            val formattedNum = if (nextIdNum < 1000) String.format("%03d", nextIdNum) else nextIdNum.toString()
+            val newUserId = "$prefix$formattedNum"
 
             val newUser = User(
                 userId = newUserId,
@@ -863,6 +892,27 @@ class ErpViewModel(application: Application) : AndroidViewModel(application) {
             _activeExam.value = null
             _selectedAnswers.value = emptyMap()
             _currentTab.value = "results"
+        }
+    }
+
+    // Attendance Methods
+    fun getAttendanceByBatchAndDate(batch: String, dateString: String): Flow<List<com.example.data.AttendanceRecord>> {
+        return repository.getAttendanceByBatchAndDate(batch, dateString)
+    }
+
+    fun getAttendanceByStudent(studentId: String): Flow<List<com.example.data.AttendanceRecord>> {
+        return repository.getAttendanceByStudent(studentId)
+    }
+
+    fun markAttendance(studentId: String, batch: String, dateString: String, status: String) {
+        viewModelScope.launch {
+            repository.insertAttendance(com.example.data.AttendanceRecord(studentId = studentId, batch = batch, dateString = dateString, status = status))
+        }
+    }
+
+    fun deleteAttendanceRecord(batch: String, dateString: String) {
+        viewModelScope.launch {
+            repository.deleteAttendanceForBatchDate(batch, dateString)
         }
     }
 

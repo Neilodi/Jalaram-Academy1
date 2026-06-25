@@ -192,4 +192,22 @@ interface AssignmentDeadlineDao {
     suspend fun deleteDeadline(id: Int)
 }
 
+@Dao
+interface AttendanceDao {
+    @Query("SELECT * FROM attendance_records WHERE batch = :batch AND dateString = :dateString")
+    fun getAttendanceByBatchAndDate(batch: String, dateString: String): Flow<List<AttendanceRecord>>
+
+    @Query("SELECT * FROM attendance_records WHERE studentId = :studentId")
+    fun getAttendanceByStudent(studentId: String): Flow<List<AttendanceRecord>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAttendance(record: AttendanceRecord)
+
+    @Update
+    suspend fun updateAttendance(record: AttendanceRecord)
+
+    @Query("DELETE FROM attendance_records WHERE batch = :batch AND dateString = :dateString")
+    suspend fun deleteAttendanceForBatchDate(batch: String, dateString: String)
+}
+
 

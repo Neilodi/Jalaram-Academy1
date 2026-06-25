@@ -26,9 +26,40 @@ import androidx.compose.ui.unit.sp
 import com.example.data.SystemNotification
 import com.example.data.User
 import com.example.data.Exam
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.composed
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.IntSize
 import com.example.ui.theme.*
 import com.example.viewmodel.ErpViewModel
+
+fun Modifier.shimmerEffect(): Modifier = composed {
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val startOffsetX by transition.animateFloat(
+        initialValue = -2 * size.width.toFloat(),
+        targetValue = 2 * size.width.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000)
+        ),
+        label = "shimmer"
+    )
+
+    background(
+        brush = Brush.linearGradient(
+            colors = listOf(
+                Color(0xFFEBEBF4),
+                Color(0xFFF4F4F4),
+                Color(0xFFEBEBF4),
+            ),
+            start = Offset(startOffsetX, 0f),
+            end = Offset(startOffsetX + size.width.toFloat(), size.height.toFloat())
+        )
+    ).onGloballyPositioned {
+        size = it.size
+    }
+}
 
 @Composable
 fun DashboardScreen(viewModel: ErpViewModel) {
@@ -38,10 +69,14 @@ fun DashboardScreen(viewModel: ErpViewModel) {
     val notificationsList by viewModel.notificationsList.collectAsState()
     val examsList by viewModel.examsList.collectAsState()
     val resultsList by viewModel.resultsList.collectAsState()
+    val isLoading by viewModel.isLoadingDashboard.collectAsState()
 
     val pendingUsers = remember(usersList) { usersList.filter { it.status == "Pending" } }
 
-    LazyColumn(
+    if (isLoading) {
+        DashboardSkeleton()
+    } else {
+        LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
@@ -270,6 +305,77 @@ fun DashboardScreen(viewModel: ErpViewModel) {
                 NoticeItemCard(notice = notice, currentUserRole = currentUser?.role ?: "", onDeleteNotice = {
                     viewModel.deleteNotification(notice.id)
                 })
+            }
+        }
+    }
+}
+
+@Composable
+fun DashboardSkeleton() {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        // Banner Skeleton
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .shimmerEffect()
+            )
+        }
+
+        // Stats Skeleton
+        item {
+            Column {
+                Box(
+                    modifier = Modifier
+                        .width(180.dp)
+                        .height(20.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .shimmerEffect()
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    repeat(3) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(100.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .shimmerEffect()
+                        )
+                    }
+                }
+            }
+        }
+
+        // Module Skeleton
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Box(
+                    modifier = Modifier
+                        .width(150.dp)
+                        .height(20.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .shimmerEffect()
+                )
+                repeat(3) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(80.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .shimmerEffect()
+                    )
+                }
             }
         }
     }

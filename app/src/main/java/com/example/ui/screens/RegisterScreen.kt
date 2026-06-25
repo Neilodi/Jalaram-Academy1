@@ -26,8 +26,13 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
 import com.example.ui.theme.*
 import com.example.viewmodel.ErpViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,6 +41,7 @@ fun RegisterScreen(
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
     val batchesList by viewModel.batchesList.collectAsState()
 
     val headDeviceCount by viewModel.headDeviceCount.collectAsState()
@@ -195,6 +201,8 @@ fun RegisterScreen(
                             focusedBorderColor = JalaramPrimary,
                             unfocusedBorderColor = JalaramBorder
                         ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("reg_name_input")
@@ -209,7 +217,8 @@ fun RegisterScreen(
                         label = { Text(if (regRole == "Student") "Student Personal Phone (Optional)" else "Contact Phone (10 digits)") },
                         placeholder = { Text(if (regRole == "Student") "e.g. 9845012345 (Leave blank if none)" else "e.g. 9845012345") },
                         leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = JalaramTextSub) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
+                        keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -253,7 +262,8 @@ fun RegisterScreen(
                                             },
                                             placeholder = { Text("Parent Mobile #${idx + 1}") },
                                             leadingIcon = { Icon(Icons.Default.ContactPhone, contentDescription = null, tint = JalaramTextSub) },
-                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
+                                            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                                             singleLine = true,
                                             shape = RoundedCornerShape(12.dp),
                                             colors = OutlinedTextFieldDefaults.colors(
@@ -333,6 +343,8 @@ fun RegisterScreen(
                                         focusedBorderColor = JalaramPrimary,
                                         unfocusedBorderColor = JalaramBorder
                                     ),
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                                     modifier = Modifier.fillMaxWidth().testTag("reg_subjects_input")
                                 )
 
@@ -348,6 +360,8 @@ fun RegisterScreen(
                                         focusedBorderColor = JalaramPrimary,
                                         unfocusedBorderColor = JalaramBorder
                                     ),
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                    keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
                                     modifier = Modifier.fillMaxWidth().testTag("reg_teacher_batches_input")
                                 )
                             }
@@ -363,7 +377,10 @@ fun RegisterScreen(
                         label = { Text("Set 4-digit Account Access PIN") },
                         placeholder = { Text("xxxx") },
                         leadingIcon = { Icon(Icons.Default.Key, contentDescription = null, tint = JalaramTextSub) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = {
+                            focusManager.clearFocus()
+                        }),
                         visualTransformation = PasswordVisualTransformation(),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
@@ -378,29 +395,40 @@ fun RegisterScreen(
 
                     Spacer(modifier = Modifier.height(28.dp))
 
+                    var isSubmitting by remember { mutableStateOf(false) }
+                    val scope = rememberCoroutineScope()
+
                     Button(
                         onClick = {
+                            if (isSubmitting) return@Button
                             val joinedParentMobiles = parentMobiles.map { it.trim() }.filter { it.isNotEmpty() }.joinToString(",")
-                            viewModel.registerNewUser(
-                                name = regName,
-                                role = regRole,
-                                mobile = regMobile,
-                                parentMobile = if (regRole == "Student") joinedParentMobiles else null,
-                                batch = if (regRole == "Student") selectedBatch else if (regRole == "Teacher") regBatches else null,
-                                subjects = if (regRole == "Teacher") regSubjects else null,
-                                pin = regPin,
-                                onSuccess = { id ->
-                                    Toast.makeText(
-                                        context,
-                                        "Registration submitted! Assigned User ID: $id.\nPlease wait for Admin approval to login.",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                    onCancel()
-                                },
-                                onError = { error ->
-                                    Toast.makeText(context, error, Toast.LENGTH_LONG).show()
-                                }
-                            )
+                            isSubmitting = true
+                            scope.launch {
+                                // Simulate saving to integrated ERP backend
+                                kotlinx.coroutines.delay(2000)
+                                viewModel.registerNewUser(
+                                    name = regName,
+                                    role = regRole,
+                                    mobile = regMobile,
+                                    parentMobile = if (regRole == "Student") joinedParentMobiles else null,
+                                    batch = if (regRole == "Student") selectedBatch else if (regRole == "Teacher") regBatches else null,
+                                    subjects = if (regRole == "Teacher") regSubjects else null,
+                                    pin = regPin,
+                                    onSuccess = { id ->
+                                        isSubmitting = false
+                                        Toast.makeText(
+                                            context,
+                                            "Registration synced to ERP backend! Assigned User ID: $id.\nPlease wait for Admin approval to login.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        onCancel()
+                                    },
+                                    onError = { error ->
+                                        isSubmitting = false
+                                        Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                                    }
+                                )
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = JalaramPrimary),
                         shape = RoundedCornerShape(12.dp),
@@ -409,9 +437,19 @@ fun RegisterScreen(
                             .height(50.dp)
                             .testTag("reg_submit_button")
                     ) {
-                        Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Submit check mark")
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Submit Registration Request", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        if (isSubmitting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Saving to ERP Backend...", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        } else {
+                            Icon(imageVector = Icons.Default.CheckCircle, contentDescription = "Submit check mark")
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Submit Registration Request", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))

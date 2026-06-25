@@ -51,6 +51,7 @@ fun MainShellScreen(viewModel: ErpViewModel) {
             ErpRoute("batches", "My Batches", Icons.Default.MeetingRoom, listOf("Admin", "Teacher")),
             ErpRoute("gradebook", "Gradebook", Icons.Default.AssignmentTurnedIn, listOf("Admin", "Teacher")),
             ErpRoute("users", "User Management", Icons.Default.Group, listOf("Admin")),
+            ErpRoute("attendance", "Attendance", Icons.Default.HowToReg, listOf("Admin", "Teacher", "Student")),
             ErpRoute("exams", "Examinations", Icons.Default.Assignment, listOf("Admin", "Teacher", "Student")),
             ErpRoute("results", "Performance", Icons.Default.BarChart, listOf("Admin", "Teacher", "Student")),
             ErpRoute("live", "Live Classroom", Icons.Default.Videocam, listOf("Admin", "Teacher", "Student")),
@@ -163,6 +164,7 @@ fun MainShellScreen(viewModel: ErpViewModel) {
                         "batches" -> BatchesScreen(viewModel = viewModel)
                         "gradebook" -> GradebookScreen(viewModel = viewModel)
                         "users" -> UserManagementScreen(viewModel = viewModel)
+                        "attendance" -> AttendanceScreen(viewModel = viewModel)
                         "exams" -> {
                             if (currentUser?.role == "Student") {
                                 ProExamListScreen(viewModel = viewModel)

@@ -776,7 +776,6 @@ fun ActiveClassroomSession(
     var videoDisabled by remember { mutableStateOf(false) }
     var isWhiteboardActive by remember { mutableStateOf(false) }
     var isScreenShareActive by remember { mutableStateOf(false) }
-    var isChatDrawerOpen by remember { mutableStateOf(false) }
     var isHandRaised by remember { mutableStateOf(false) }
     var isGalleryView by remember { mutableStateOf(true) }
 
@@ -791,15 +790,6 @@ fun ActiveClassroomSession(
     val batchClass = currentSession?.batch ?: "Grade 10-A"
     val topicTitle = currentSession?.topic ?: "Interactive Session"
     val instructorName = currentSession?.startedBy ?: "Dr. Shalini Vyas"
-
-    val initialBubbles = remember {
-        mutableStateListOf(
-            Pair(instructorName, "Welcome class! Today we are discussing '$topicTitle'. We are using Jalaram Custom Native Video interface!"),
-            Pair("Suresh Kumar", "Sir/Ma'am, the custom interactive whiteboard is incredibly fast!"),
-            Pair("Aditi Sharma", "Yes, and no more external Jitsi redirect redirects or external downloads! This is wonderful.")
-        )
-    }
-    var typedChatMsg by remember { mutableStateOf("") }
 
     // Screen Share slide simulation content
     var currentSlideIndex by remember { mutableIntStateOf(0) }
@@ -1554,114 +1544,6 @@ fun ActiveClassroomSession(
             }
         }
 
-        // INTEGRATED CHAT DRAWER PANEL (Collapsible Sidebar style)
-        if (isChatDrawerOpen) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(0.8f)
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f))
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "💬 LIVE CHAT FEED",
-                            color = JalaramPrimary,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 11.sp
-                        )
-                        IconButton(
-                            onClick = { isChatDrawerOpen = false },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    // Scrollable messages list
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        initialBubbles.forEach { (sender, msg) ->
-                            val isMe = sender == currentUserName
-                            Box(
-                                modifier = Modifier.fillMaxWidth(),
-                                contentAlignment = if (isMe) Alignment.CenterEnd else Alignment.CenterStart
-                            ) {
-                                Surface(
-                                    color = if (isMe) JalaramPrimary.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.08f),
-                                    shape = RoundedCornerShape(8.dp),
-                                    border = BorderStroke(1.dp, if (isMe) JalaramPrimary.copy(alpha = 0.5f) else Color.Transparent)
-                                ) {
-                                    Column(modifier = Modifier.padding(8.dp)) {
-                                        Text(
-                                            text = sender,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 9.sp,
-                                            color = if (isMe) JalaramPrimary else JalaramAccent
-                                        )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(text = msg, color = Color.White, fontSize = 11.sp)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Message typing interface
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = typedChatMsg,
-                            onValueChange = { typedChatMsg = it },
-                            placeholder = { Text("Type class message...", fontSize = 11.sp, color = Color.White.copy(alpha = 0.4f)) },
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedBorderColor = JalaramPrimary,
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
-                            ),
-                            textStyle = MaterialTheme.typography.bodySmall.copy(color = Color.White),
-                            modifier = Modifier.weight(1f).height(46.dp),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-
-                        Button(
-                            onClick = {
-                                if (typedChatMsg.trim().isNotEmpty()) {
-                                    initialBubbles.add(Pair(currentUserName, typedChatMsg.trim()))
-                                    typedChatMsg = ""
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = JalaramPrimary),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.height(40.dp)
-                        ) {
-                            Text("Send", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-        }
-
         // LIVE CONTROL BAR PANEL (Sleek slate dark control bar)
         Surface(
             color = Color(0xFF1E293B),
@@ -1753,32 +1635,6 @@ fun ActiveClassroomSession(
                         contentDescription = "Toggle Screen Share",
                         tint = if (isScreenShareActive) Color.Black else Color.White,
                         modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // Chat Sidebar Toggle
-                Box {
-                    IconButton(
-                        onClick = { isChatDrawerOpen = !isChatDrawerOpen },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(if (isChatDrawerOpen) JalaramPrimary else Color.White.copy(alpha = 0.1f))
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Chat,
-                            contentDescription = "Toggle Chat",
-                            tint = if (isChatDrawerOpen) Color.Black else Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    // Unread badge indicator
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFEF4444))
-                            .align(Alignment.TopEnd)
                     )
                 }
 

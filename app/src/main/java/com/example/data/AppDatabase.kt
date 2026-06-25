@@ -26,9 +26,10 @@ import androidx.room.RoomDatabase
         ProAttemptAnswer::class,
         ProExamDraft::class,
         ProQuestionDraft::class,
-        ProQuestionOptionDraft::class
+        ProQuestionOptionDraft::class,
+        AttendanceRecord::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -45,6 +46,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun enrollmentDao(): CourseEnrollmentDao
     abstract fun deadlineDao(): AssignmentDeadlineDao
     abstract fun proExamDao(): ProExamDao
+    abstract fun attendanceDao(): AttendanceDao
 
     companion object {
         @Volatile

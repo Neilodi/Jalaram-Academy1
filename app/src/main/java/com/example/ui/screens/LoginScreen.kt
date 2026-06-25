@@ -17,7 +17,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,7 +25,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -46,6 +48,7 @@ fun LoginScreen(
     val context = LocalContext.current
     val showOtpVerification by viewModel.showOtpVerification.collectAsState()
     val verificationId by viewModel.verificationId.collectAsState()
+    val focusManager = LocalFocusManager.current
 
     var loginTab by remember { mutableStateOf(0) } // 0: Email, 1: Phone
     var emailInput by remember { mutableStateOf("") }
@@ -106,19 +109,16 @@ fun LoginScreen(
                             selectedTabIndex = loginTab,
                             containerColor = Color.Transparent,
                             contentColor = JalaramPrimary,
-                            divider = {},
-                            indicator = { tabPositions ->
-                                TabRowDefaults.SecondaryIndicator(
-                                    Modifier.tabIndicatorOffset(tabPositions[loginTab]),
-                                    color = JalaramPrimary
-                                )
-                            }
+                            divider = {}
                         ) {
                             Tab(selected = loginTab == 0, onClick = { loginTab = 0 }) {
                                 Text("Email", modifier = Modifier.padding(16.dp))
                             }
                             Tab(selected = loginTab == 1, onClick = { loginTab = 1 }) {
                                 Text("Phone", modifier = Modifier.padding(16.dp))
+                            }
+                            Tab(selected = loginTab == 2, onClick = { loginTab = 2 }) {
+                                Text("ID & Role", modifier = Modifier.padding(16.dp))
                             }
                         }
 
@@ -132,7 +132,9 @@ fun LoginScreen(
                                 label = { Text("Email Address") },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
-                                leadingIcon = { Icon(Icons.Default.Email, null) }
+                                leadingIcon = { Icon(Icons.Default.Email, null) },
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             OutlinedTextField(
@@ -142,7 +144,12 @@ fun LoginScreen(
                                 visualTransformation = PasswordVisualTransformation(),
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
-                                leadingIcon = { Icon(Icons.Default.Lock, null) }
+                                leadingIcon = { Icon(Icons.Default.Lock, null) },
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = { 
+                                    focusManager.clearFocus()
+                                    viewModel.loginWithEmail(emailInput, passwordInput) 
+                                })
                             )
                             Spacer(modifier = Modifier.height(24.dp))
                             Button(
@@ -153,7 +160,7 @@ fun LoginScreen(
                             ) {
                                 Text("Sign In with Email")
                             }
-                        } else {
+                        } else if (loginTab == 1) {
                             // Phone Login
                             OutlinedTextField(
                                 value = phoneInput,
@@ -163,12 +170,29 @@ fun LoginScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
                                 leadingIcon = { Icon(Icons.Default.Phone, null) },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    focusManager.clearFocus()
+                                    var activity: android.app.Activity? = context as? android.app.Activity
+                                    var currentContext = context
+                                    while (activity == null && currentContext is android.content.ContextWrapper) {
+                                        currentContext = currentContext.baseContext
+                                        activity = currentContext as? android.app.Activity
+                                    }
+                                    if (activity != null) {
+                                        viewModel.startPhoneAuth(phoneInput, activity)
+                                    }
+                                })
                             )
                             Spacer(modifier = Modifier.height(24.dp))
                             Button(
                                 onClick = { 
-                                    val activity = context as? Activity
+                                    var activity: android.app.Activity? = context as? android.app.Activity
+                                    var currentContext = context
+                                    while (activity == null && currentContext is android.content.ContextWrapper) {
+                                        currentContext = currentContext.baseContext
+                                        activity = currentContext as? android.app.Activity
+                                    }
                                     if (activity != null) {
                                         viewModel.startPhoneAuth(phoneInput, activity)
                                     }
@@ -178,6 +202,102 @@ fun LoginScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = JalaramPrimary)
                             ) {
                                 Text("Send Verification Code")
+                            }
+                        } else if (loginTab == 2) {
+                            var idInput by remember { mutableStateOf("") }
+                            var roleInput by remember { mutableStateOf("Student") }
+                            var pinInput by remember { mutableStateOf("") }
+                            var roleExpanded by remember { mutableStateOf(false) }
+
+                            ExposedDropdownMenuBox(
+                                expanded = roleExpanded,
+                                onExpandedChange = { roleExpanded = !roleExpanded }
+                            ) {
+                                OutlinedTextField(
+                                    readOnly = true,
+                                    value = roleInput,
+                                    onValueChange = {},
+                                    label = { Text("Role") },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = roleExpanded) },
+                                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                                        focusedBorderColor = JalaramPrimary,
+                                        unfocusedBorderColor = JalaramBorder
+                                    ),
+                                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = roleExpanded,
+                                    onDismissRequest = { roleExpanded = false },
+                                    modifier = Modifier.background(JalaramSurface)
+                                ) {
+                                    listOf("Student", "Teacher", "Admin", "Head").forEach { role ->
+                                        DropdownMenuItem(
+                                            text = { Text(role) },
+                                            onClick = {
+                                                roleInput = role
+                                                roleExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            OutlinedTextField(
+                                value = idInput,
+                                onValueChange = { idInput = it },
+                                label = { Text("User ID") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                leadingIcon = { Icon(Icons.Default.Person, null) },
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            OutlinedTextField(
+                                value = pinInput,
+                                onValueChange = { pinInput = it },
+                                label = { Text("PIN") },
+                                visualTransformation = PasswordVisualTransformation(),
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    focusManager.clearFocus()
+                                    viewModel.login(idInput, roleInput, pinInput,
+                                        onBiometricRequested = { user ->
+                                            // Optional: Handle biometric if requested
+                                        },
+                                        onOtpRequested = { 
+                                            // Handle OTP if needed
+                                        },
+                                        onError = { error ->
+                                            Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
+                                }),
+                                leadingIcon = { Icon(Icons.Default.Lock, null) }
+                            )
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(
+                                onClick = { 
+                                    viewModel.login(idInput, roleInput, pinInput,
+                                        onBiometricRequested = { user ->
+                                            // Optional: Handle biometric if requested
+                                        },
+                                        onOtpRequested = { 
+                                            // Handle OTP if needed
+                                        },
+                                        onError = { error ->
+                                            Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth().height(50.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = JalaramPrimary)
+                            ) {
+                                Text("Log In with ID & PIN")
                             }
                         }
                     } else {
@@ -215,6 +335,12 @@ fun LoginScreen(
                         }
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            TextButton(onClick = onRegisterClick) {
+                Text("Don't have an account? Request access", color = JalaramPrimary)
             }
 
             Spacer(modifier = Modifier.height(40.dp))

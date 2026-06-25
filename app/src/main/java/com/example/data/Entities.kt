@@ -177,4 +177,13 @@ data class AssignmentDeadline(
     val isCompleted: Boolean = false
 ) : java.io.Serializable
 
+@Entity(tableName = "attendance_records")
+data class AttendanceRecord(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val studentId: String,
+    val batch: String,
+    val dateString: String,
+    val status: String
+) : java.io.Serializable
+
 

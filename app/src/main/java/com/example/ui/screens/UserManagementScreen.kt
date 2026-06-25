@@ -25,6 +25,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import com.example.data.User
 import com.example.ui.theme.*
 import com.example.viewmodel.ErpViewModel
@@ -40,10 +46,7 @@ fun UserManagementScreen(viewModel: ErpViewModel) {
     var userToApprove by remember { mutableStateOf<User?>(null) }
     var showAddUserDialog by remember { mutableStateOf(false) }
 
-    var showNewSubjectDialog by remember { mutableStateOf(false) }
     var pendingSaveAction by remember { mutableStateOf<((String) -> Unit)?>(null) }
-    var detectedNewSubjects by remember { mutableStateOf<List<String>>(emptyList()) }
-    var originalSubjectsToProcess by remember { mutableStateOf("") }
 
     val headDeviceLimit by viewModel.headDeviceLimit.collectAsState()
 
@@ -54,149 +57,249 @@ fun UserManagementScreen(viewModel: ErpViewModel) {
         }
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // 🛠️ System Administration & Simulation Panel
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = JalaramSurface),
-                border = BorderStroke(1.dp, JalaramBorder)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Add user button
-                    Button(
-                        onClick = { showAddUserDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = JalaramPrimary),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                    ) {
-                        Icon(imageVector = Icons.Default.PersonAdd, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Add New Academy Member / Admin", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
+    var selectedTab by remember { mutableStateOf(0) }
+
+    Row(modifier = Modifier.fillMaxSize()) {
+        // Vertical Navigation Rail
+        NavigationRail(
+            modifier = Modifier.width(90.dp),
+            containerColor = JalaramSurface,
+            contentColor = JalaramPrimary
+        ) {
+            Spacer(modifier = Modifier.height(16.dp))
+            NavigationRailItem(
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0 },
+                icon = { Icon(Icons.Default.HourglassEmpty, contentDescription = "Pending") },
+                label = { Text("Queue", fontSize = 11.sp, maxLines = 1) },
+                colors = NavigationRailItemDefaults.colors(
+                    selectedIconColor = JalaramSurface,
+                    selectedTextColor = JalaramPrimary,
+                    indicatorColor = JalaramPrimary
+                )
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            NavigationRailItem(
+                selected = selectedTab == 1,
+                onClick = { selectedTab = 1 },
+                icon = { Icon(Icons.Default.People, contentDescription = "Active") },
+                label = { Text("Directory", fontSize = 11.sp, maxLines = 1) },
+                colors = NavigationRailItemDefaults.colors(
+                    selectedIconColor = JalaramSurface,
+                    selectedTextColor = JalaramPrimary,
+                    indicatorColor = JalaramPrimary
+                )
+            )
         }
 
-        // Pending approvals header and cards
-        if (pendingUsers.isNotEmpty()) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = JalaramWarningContainer.copy(alpha = 0.2f)),
-                    border = BorderStroke(1.dp, JalaramWarning.copy(alpha = 0.4f))
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Warning,
-                                contentDescription = null,
-                                tint = JalaramWarning,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+        Divider(modifier = Modifier.fillMaxHeight().width(1.dp), color = JalaramBorder)
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (selectedTab == 0) {
+                // Pending Queue Tab
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = "⚠️ Pending Registrations (${pendingUsers.size})",
+                                text = "Registration Approval Queue",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = JalaramWarning
+                                    color = JalaramTextMain
                                 )
                             )
+                            if (pendingUsers.isNotEmpty()) {
+                                TextButton(
+                                    onClick = { viewModel.clearAllPendingUsers() },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = JalaramDanger)
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Clear All")
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Clear All", fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
+                        
+                        Button(
+                            onClick = { showAddUserDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = JalaramPrimary),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.PersonAdd, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Add New Academy Member / Admin", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        pendingUsers.forEach { user ->
-                            PendingUserRow(
-                                user = user,
-                                onApprove = { userToApprove = user },
-                                onReject = { viewModel.rejectUser(user.userId) }
+                if (pendingUsers.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No pending registration requests.",
+                                color = JalaramTextSub,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }
+                } else {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = JalaramWarningContainer.copy(alpha = 0.2f)),
+                            border = BorderStroke(1.dp, JalaramWarning.copy(alpha = 0.4f))
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = JalaramWarning,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "⚠️ Pending Registrations (${pendingUsers.size})",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = JalaramWarning
+                                        )
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                pendingUsers.forEach { user ->
+                                    PendingUserRow(
+                                        user = user,
+                                        onApprove = { userToApprove = user },
+                                        onReject = { viewModel.rejectUser(user.userId) }
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
-            }
-        }
-
-        // Active Users directory header
-        item {
-            Text(
-                text = "Active Members Directory",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = JalaramTextMain
-                )
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text("Filter database by Name or User ID...") },
-                leadingIcon = { Icon(imageVector = Icons.Default.FilterList, contentDescription = null) },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = JalaramPrimary,
-                    unfocusedBorderColor = JalaramBorder
-                ),
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        // Active listing rows
-        if (activeUsers.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
+            } else {
+                // Active Directory Tab
+                item {
                     Text(
-                        text = "No matching active academy users found.",
-                        color = JalaramTextSub,
-                        fontWeight = FontWeight.Medium
+                        text = "Active Members Directory",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = JalaramTextMain
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Filter database by Name or User ID...") },
+                        leadingIcon = { Icon(imageVector = Icons.Default.FilterList, contentDescription = null) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = JalaramPrimary,
+                            unfocusedBorderColor = JalaramBorder
+                        ),
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
-            }
-        } else {
-            items(activeUsers) { user ->
-                ActiveUserRow(
-                    user = user,
-                    onEditClick = { userToEdit = user }
-                )
+
+                // Active listing rows
+                if (activeUsers.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No matching active academy users found.",
+                                color = JalaramTextSub,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                } else {
+                    items(activeUsers) { user ->
+                        ActiveUserRow(
+                            user = user,
+                            onEditClick = { userToEdit = user }
+                        )
+                    }
+                }
             }
         }
     }
+
+    var typoCheckQueue by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var typoOriginalSubjectList by remember { mutableStateOf<List<String>>(emptyList()) }
 
     val checkNewSubjectsAndRun = { role: String, subjects: String?, onProceed: (String?) -> Unit ->
         if (role != "Teacher" || subjects.isNullOrBlank()) {
             onProceed(subjects)
         } else {
-            val existingSubjects = viewModel.coursesList.value.map { it.category.trim().lowercase() }.distinct()
+            val existingSubjectsRaw = viewModel.coursesList.value.map { it.category.trim() }.distinct()
+            val existingLower = existingSubjectsRaw.associateBy { it.lowercase() }
+            
             val teacherSubjects = subjects.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-            val newSubjects = teacherSubjects.filter { it.lowercase() !in existingSubjects }
-
-            if (newSubjects.isNotEmpty()) {
-                detectedNewSubjects = newSubjects
-                originalSubjectsToProcess = subjects
-                pendingSaveAction = { finalSubjects ->
-                    onProceed(finalSubjects)
-                }
-                showNewSubjectDialog = true
-            } else {
+            val newSubjects = teacherSubjects.filter { it.lowercase() !in existingLower.keys }
+            
+            if (newSubjects.isEmpty()) {
                 onProceed(subjects)
+            } else {
+                val typos = mutableListOf<Pair<String, String>>()
+                for (newSub in newSubjects) {
+                    val subCounts = newSub.lowercase().groupingBy { it }.eachCount()
+                    var foundTypo: String? = null
+                    for (exSub in existingSubjectsRaw) {
+                        val exCounts = exSub.lowercase().groupingBy { it }.eachCount()
+                        var diff = 0
+                        val allChars = (subCounts.keys + exCounts.keys).toSet()
+                        for (char in allChars) {
+                            diff += kotlin.math.abs((subCounts[char] ?: 0) - (exCounts[char] ?: 0))
+                        }
+                        if (diff <= 2) {
+                            foundTypo = exSub
+                            break
+                        }
+                    }
+                    if (foundTypo != null) {
+                        typos.add(newSub to foundTypo)
+                    } else {
+                        viewModel.addNewSubjectCourse(newSub)
+                    }
+                }
+                
+                if (typos.isNotEmpty()) {
+                    typoCheckQueue = typos
+                    typoOriginalSubjectList = teacherSubjects
+                    pendingSaveAction = onProceed
+                } else {
+                    onProceed(subjects)
+                }
             }
         }
     }
@@ -254,131 +357,36 @@ fun UserManagementScreen(viewModel: ErpViewModel) {
         )
     }
 
-    if (showNewSubjectDialog) {
-        var step by remember { mutableStateOf(1) }
-        var intendedSubjectInput by remember { mutableStateOf("") }
-
-        if (step == 1) {
-            AlertDialog(
-                onDismissRequest = {
-                    showNewSubjectDialog = false
-                    pendingSaveAction = null
-                },
-                title = { Text("New Subject Detected", fontWeight = FontWeight.Bold, color = JalaramPrimary) },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "The following new subject(s) were found:",
-                            fontWeight = FontWeight.SemiBold,
-                            color = JalaramTextMain
-                        )
-                        detectedNewSubjects.forEach { subj ->
-                            Text("• $subj", color = JalaramPrimary, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Do you want to add these new subject(s) to the system course directory?",
-                            color = JalaramTextSub
-                        )
+    if (typoCheckQueue.isNotEmpty()) {
+        val currentTypo = typoCheckQueue.first()
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("Subject Typo Detected", fontWeight = FontWeight.Bold) },
+            text = { Text("Did the user mean \"${currentTypo.second}\" instead of \"${currentTypo.first}\"?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val newList = typoOriginalSubjectList.map { 
+                        if (it.lowercase() == currentTypo.first.lowercase()) currentTypo.second else it 
                     }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            detectedNewSubjects.forEach { subj ->
-                                viewModel.addNewSubjectCourse(subj)
-                            }
-                            showNewSubjectDialog = false
-                            pendingSaveAction?.let { it(originalSubjectsToProcess) }
-                            pendingSaveAction = null
-                            Toast.makeText(context, "New subject(s) added to directory!", Toast.LENGTH_SHORT).show()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = JalaramSuccess)
-                    ) {
-                        Text("Yes, Add Subject(s)")
+                    typoOriginalSubjectList = newList
+                    typoCheckQueue = typoCheckQueue.drop(1)
+                    if (typoCheckQueue.isEmpty()) {
+                        pendingSaveAction?.invoke(typoOriginalSubjectList.joinToString(", "))
+                        pendingSaveAction = null
                     }
-                },
-                dismissButton = {
-                    Button(
-                        onClick = {
-                            step = 2
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = JalaramDanger)
-                    ) {
-                        Text("No")
+                }) { Text("Yes") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.addNewSubjectCourse(currentTypo.first)
+                    typoCheckQueue = typoCheckQueue.drop(1)
+                    if (typoCheckQueue.isEmpty()) {
+                        pendingSaveAction?.invoke(typoOriginalSubjectList.joinToString(", "))
+                        pendingSaveAction = null
                     }
-                }
-            )
-        } else {
-            AlertDialog(
-                onDismissRequest = {
-                    showNewSubjectDialog = false
-                    pendingSaveAction = null
-                },
-                title = { Text("Set Intended Subject", fontWeight = FontWeight.Bold) },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "Since you selected not to add the new subject(s) to the system, please enter the intended existing subject (e.g., Physics) to replace it, or tap Skip to omit them.",
-                            fontSize = 13.sp,
-                            color = JalaramTextSub
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = intendedSubjectInput,
-                            onValueChange = { intendedSubjectInput = it },
-                            label = { Text("Intended Existing Subject Name") },
-                            placeholder = { Text("e.g. Physics") },
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = JalaramPrimary),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            val cleanedIntended = intendedSubjectInput.trim()
-                            if (cleanedIntended.isNotEmpty()) {
-                                showNewSubjectDialog = false
-                                val existingSubjects = viewModel.coursesList.value.map { it.category.trim().lowercase() }.distinct()
-                                val teacherSubjects = originalSubjectsToProcess.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                                val finalized = teacherSubjects.map { subj ->
-                                    if (subj.lowercase() !in existingSubjects) cleanedIntended else subj
-                                }.distinct().joinToString(", ")
-                                
-                                pendingSaveAction?.let { it(finalized) }
-                                pendingSaveAction = null
-                                Toast.makeText(context, "Saved with intended subject: $cleanedIntended", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, "Please enter a valid subject name, or click Skip", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = JalaramPrimary)
-                    ) {
-                        Text("Apply Intended")
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = {
-                            showNewSubjectDialog = false
-                            val existingSubjects = viewModel.coursesList.value.map { it.category.trim().lowercase() }.distinct()
-                            val teacherSubjects = originalSubjectsToProcess.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                            val finalized = teacherSubjects.filter { subj ->
-                                subj.lowercase() in existingSubjects
-                            }.distinct().joinToString(", ")
-                            
-                            pendingSaveAction?.let { it(finalized) }
-                            pendingSaveAction = null
-                            Toast.makeText(context, "Saved by skipping new subject(s)", Toast.LENGTH_SHORT).show()
-                        }
-                    ) {
-                        Text("Skip")
-                    }
-                }
-            )
-        }
+                }) { Text("No, add as new") }
+            }
+        )
     }
 }
 

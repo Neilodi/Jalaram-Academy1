@@ -130,6 +130,13 @@ class DatabaseRepository(private val db: AppDatabase) {
     suspend fun clearAllLectureMaterials() =
         db.lectureMaterialDao().clearAllMaterials()
 
+    // Attendance
+    fun getAttendanceByBatchAndDate(batch: String, dateString: String) = db.attendanceDao().getAttendanceByBatchAndDate(batch, dateString)
+    fun getAttendanceByStudent(studentId: String) = db.attendanceDao().getAttendanceByStudent(studentId)
+    suspend fun insertAttendance(record: AttendanceRecord) = db.attendanceDao().insertAttendance(record)
+    suspend fun updateAttendance(record: AttendanceRecord) = db.attendanceDao().updateAttendance(record)
+    suspend fun deleteAttendanceForBatchDate(batch: String, dateString: String) = db.attendanceDao().deleteAttendanceForBatchDate(batch, dateString)
+
     suspend fun seedDatabaseIfNeeded() {
         val allUsers = db.userDao().getAllUsers()
         if (allUsers.isNotEmpty()) return
